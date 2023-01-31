@@ -13,6 +13,14 @@ add_executable(testjson testJson.cpp)
 target_include_directories(testjson PUBLIC "${PROJECT_SOURCE_DIR}/include") 
 target_link_libraries(testjson PUBLIC ClqPart)
 
+add_executable(jsongraph testJsonGraph.cpp)
+target_include_directories(jsongraph PUBLIC "${PROJECT_SOURCE_DIR}/include") 
+target_link_libraries(jsongraph PUBLIC ClqPart)
+
+add_executable(jsonmtx jsonToMtx.cpp)
+target_include_directories(jsonmtx PUBLIC "${PROJECT_SOURCE_DIR}/include") 
+target_link_libraries(jsonmtx PUBLIC ClqPart)
+
 #message(STATUS "ColPack: found=${ColPack_FOUND}, include_dirs=${ColPack_INCDIR}, "
 #  "lib=${ColPack_LIBDIR}, version=${ColPack_VERSION}")
   #target_include_directories(gstream PUBLIC

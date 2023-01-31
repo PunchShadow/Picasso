@@ -22,16 +22,161 @@
 #include "nlohmann/json.hpp"
 #include <iostream>
 #include <fstream>
+#include <cmath>
+#include <complex>
+#include <string>
 
-using json = nlohmann::json;
+using json = nlohmann::ordered_json;
 
 namespace ClqPart {
+  std::pair<std::complex<double>,std::string> pqMerge(std::string P, std::string Q)
+  {
+    auto L = P.size();
+    EDGE_T nimag = 0; // numberf of 'i'
+    EDGE_T nsign = 0; // number of '-1'
+    std::string new_string = "";
+    for (auto i = 0; i < L; i++)
+    {
+        if (P[i] == 'I')
+        {
+            new_string += Q[i];
+        }
+        else if (Q[i] == 'I')
+        {
+            new_string += P[i];
+        }
+        else if (P[i] == Q[i])
+        {
+            new_string += 'I';
+        }
+        else if (P[i] == 'X')
+        {
+            if (Q[i] == 'Y')
+            {
+                new_string += 'Z';
+                nimag += 1;
+            }
+            else if (Q[i] == 'Z')
+            {
+                new_string += 'Y';
+                nimag += 1;
+                nsign += 1;
+            }
+        }
+        else if (P[i] == 'Y')
+        {
+            if (Q[i] == 'X')
+            {
+                new_string += 'Z';
+                nimag += 1;
+                nsign += 1;
+            }
+            else if (Q[i] == 'Z')
+            {
+                new_string += 'X';
+                nimag += 1;
+            }
+        }
+        else if (P[i] == 'Z')
+        {
+            if (Q[i] == 'X')
+            {
+                new_string += 'Y';
+                nimag += 1;
+            }
+            else if (Q[i] == 'Y')
+            {
+                new_string += 'X';
+                nimag += 1;
+                nsign += 1;
+            }
+        }
+    }
+    //
+    std::complex<double> sgn = std::pow(std::complex<double>(0, 1), nimag) * std::pow(-1, nsign);
+    //
+    return std::make_pair(sgn,new_string);
+  }
+
+  bool static fileTypeCheck(std::string fn, std::string extension)
+{
+    if(fn.substr(fn.find_last_of(".") + 1) == extension) {
+        return true;
+    } else {
+        return false;
+    }
+}
 
   void JsonGraph::ReadJsonAdjacencyGraph() {
 
-    std::ifstream f("/home/sferdou/ClqPartCpp/data/Ham1_H2O.json");
+    std::ifstream f(inputFile);
+    if (!f.is_open()) {
+      std::cout<< "failed to open "<< inputFile<< "\n";
+      exit(1);
+    }
     json data = json::parse(f);  
+    //json::iterator it = data.begin(); 
     
-    std::cout<<data;
+    /*
+    for (auto& [key, val] : data.items())
+    {
+      std::string s(val);
+      std::cout << std::fixed<< "key: " << key << ", value:" << std::stod(s) << '\n';
+    } 
+    */
+    
+    auto i=0;
+    for (auto it = data.begin(); it != std::prev(data.end(),1); ++it, ++i)
+    {
+      auto j=i+1;
+      for (auto it1 = std::next(it,1); it1 != data.end(); ++it1,++j) {
+        std::string s(it.value());
+        auto v1 = std::complex<double>(std::stod(s),0);
+        std::string s1(it1.value());
+        auto v2 = std::complex<double>(std::stod(s1),0);
+        //std::cout << "key: " << it.key() << ", value:" << std::stod(s) << '\n';
+        //std::cout << "key: " << it1.key() << ", value:" << std::stod(s1) << '\n';
+
+        //std::cout<<"\n";
+        auto Z1 = pqMerge(it.key(),it1.key());
+        auto Z2 = pqMerge(it1.key(),it.key());
+
+        auto _tmp = Z1.first*std::conj(v1)*v2+Z2.first*std::conj(v2)*v1;
+
+        if(Z1.second == Z2.second && _tmp.real()<1e-6) {
+          continue;
+        }
+        else {
+          //std::cout<<Z1.second<<" "<<Z2.second<<" "<<i+1<<" "<<j+1<<"\n";
+          Edge e{i,j,1.0};
+          graph.edgeList.push_back(e);
+        }
+      }
+    }
+    graph.n = i+1;
+    graph.m = graph.edgeList.size();
+  }
+
+
+  void JsonGraph::writeGraphMtx(std::string fileName) {
+    if(fileTypeCheck(fileName,"mtx")==false)
+    {
+        std::cout << "file type is not mtx"<<std::endl;
+        std::exit(1);
+    }
+    std::ofstream myfile(fileName.c_str());
+
+    if(myfile.is_open())
+    {
+        myfile << "%%MatrixMarket matrix coordinate real symmetric"<<std::endl;
+        myfile << graph.n<<" "<<graph.n<<" "<<graph.m<<"\n";
+        for(auto elem: graph.edgeList) { 
+          myfile<< elem.v+1<<" "<<elem.u+1<<" "<<elem.weight<<"\n";
+        }
+        myfile.close();
+    }
+    else
+        std::cout<<"unable to open file"<<std::endl;
+     
   }
 }

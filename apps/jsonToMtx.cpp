@@ -22,31 +22,33 @@
 #include <iostream>
 #include <fstream>
 
-using json = nlohmann::json;
 
 int main(int argC, char *argV[]) {
-  cxxopts::Options options("testjson", "read json file"); 
+  cxxopts::Options options("jsonToMtx", "read json file, create the graph and write mtx"); 
   options.add_options()
-    ("f,file", "file name", cxxopts::value<std::string>())
+    ("in,infile", "input json file name", cxxopts::value<std::string>())
+    ("out,outfile", "output mtx file name", cxxopts::value<std::string>())
     ("h,help", "print usage")
     ;
 
-  std::string fname;
+  std::string inFname,outFname;
   try{
     auto result = options.parse(argC,argV);
     if (result.count("help")) {
           std::cout<< options.help()<<"\n";
           std::exit(0);
     }
-    fname = result["file"].as<std::string>();
+    inFname = result["infile"].as<std::string>();
+    outFname = result["outfile"].as<std::string>();
   }
   catch(cxxopts::exceptions::exception &exp) {
     std::cout<<options.help()<<std::endl;
     exit(1);
   }
 
-  ClqPart::JsonGraph jsongraph(fname); 
+  ClqPart::JsonGraph jsongraph(inFname); 
   jsongraph.ReadJsonAdjacencyGraph();
+  jsongraph.writeGraphMtx(outFname);
    
   return 0;
 }
