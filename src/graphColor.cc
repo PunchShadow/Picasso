@@ -22,7 +22,7 @@
 
 using namespace ColPack;
 
-bool static fileTypeCheck(std::string fn, std::string extension) {
+bool static fileTypeCheck(std::string fn, const std::string &extension) {
     if(fn.substr(fn.find_last_of(".") + 1) == extension) {
         return true;
     } else {
