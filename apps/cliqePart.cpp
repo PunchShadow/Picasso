@@ -72,6 +72,11 @@ int main(int argc, char* argv[]) {
         }
         else {
             fprintf(stdout,"%d\n",g->GetVertexColorCount());
+            std::vector<int> vColors;
+            g->GetVertexColors(vColors);
+            for(auto color: vColors) {
+              std::cout<<color<<"\n";
+            }
         }
         delete g; g=nullptr;
     }
