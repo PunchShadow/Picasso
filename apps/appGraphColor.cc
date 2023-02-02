@@ -8,8 +8,8 @@ int main(int argC, char *argV[]) {
   options.add_options()
     ("in,infile", "input mtx file name", cxxopts::value<std::string>())
     ("out,outfile", "output color file name", cxxopts::value<std::string>())
-    ("-o,order", "LARGEST_FIRST,SMALLEST_LAST,NATURAL,RANDOM,DYNAMIC_LARGEST_FIRST,INCIDENCE_DEGREE",cxxopts::value<std::string()->default_value("SMALLEST_LAST"))
-    ("-m,method","DISTANCE_ONE,DISTANCE_ONE_OMP",cxxopts::value<std::string()->default_value("DISTANCE_ONE"))
+    ("o,order", "LARGEST_FIRST,SMALLEST_LAST,NATURAL,RANDOM,DYNAMIC_LARGEST_FIRST,INCIDENCE_DEGREE",cxxopts::value<std::string>()->default_value("SMALLEST_LAST"))
+    ("m,method","DISTANCE_ONE,DISTANCE_ONE_OMP",cxxopts::value<std::string>()->default_value("DISTANCE_ONE"))
     ("h,help", "print usage")
     ;
 

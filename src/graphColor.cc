@@ -32,6 +32,12 @@ bool static fileTypeCheck(std::string fn, const std::string &extension) {
 
 ColorStat colorGeneralGraph( std::string inFile, std::string outColorFile, std::string order, std::string method) {
 
+  if(fileTypeCheck(inFile,"mtx")==false)
+  {
+    std::cout << inFile<<" input file type is not mtx"<<std::endl;
+    std::exit(1);
+  }
+
   GraphColoringInterface *g = new GraphColoringInterface(SRC_FILE, inFile.c_str(), "AUTO_DETECTED");
   g->Coloring(order.c_str(),method.c_str());
 
@@ -41,11 +47,6 @@ ColorStat colorGeneralGraph( std::string inFile, std::string outColorFile, std::
   ColorStat cstat{t1,t2,nColor};
 
 
-  if(fileTypeCheck(outColorFile,"mtx")==false)
-  {
-    std::cout << "file type is not mtx"<<std::endl;
-    std::exit(1);
-  }
   std::ofstream myfile(outColorFile.c_str());
 
   std::vector<int> vColors;
@@ -58,7 +59,7 @@ ColorStat colorGeneralGraph( std::string inFile, std::string outColorFile, std::
     myfile.close();
   }
   else {
-    std::cout<<"unable to open file"<<std::endl;
+    std::cout<<"unable to open file named "<<outColorFile<<std::endl;
     exit(1);
   }
 
