@@ -22,17 +22,17 @@ from numpy import genfromtxt
 
 
 
-injson = open('../data/Ham_N2O.json')
-outjson = open('../data/Ham_N2O_part.json','w')
+injson = open('../data/ccsd_ket_N2O.json')
+outjson = open('../data/ccsd_ket_N2O_part.json','w')
 
 D = json.load(injson)
 D_list=list(D.items())
 
-csv_reader = csv.reader(incol,delimiter=' ')
+#csv_reader = csv.reader(incol,delimiter=' ')
 
-print(csv_reader)
+#print(csv_reader)
 
-my_data = genfromtxt('../data/Ham_N2O.col',delimiter=' ',dtype="int32")
+my_data = genfromtxt('../data/ccsd_ket_N2O.col',delimiter=' ',dtype="int32")
 
 
 print(my_data)
