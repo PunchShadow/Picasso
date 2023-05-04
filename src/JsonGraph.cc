@@ -98,6 +98,22 @@ namespace ClqPart {
     return std::make_pair(sgn,new_string);
   }
 
+  bool is_an_edge(std::string P, std::string Q) {
+    int L = P.length();
+    int cnt = 0;
+    for (int i = 0; i < L; i++) {
+      if (P[i] != 'I' && Q[i] != 'I' && P[i] != Q[i]) {
+        cnt++;
+      }
+    }
+    if (cnt % 2 == 1) {
+      return true;
+    }
+    else {
+      return false;
+    }
+  }
+
   bool static fileTypeCheck(std::string fn, std::string extension)
 {
     if(fn.substr(fn.find_last_of(".") + 1) == extension) {
@@ -130,21 +146,24 @@ namespace ClqPart {
     {
       auto j=i+1;
       for (auto it1 = std::next(it,1); it1 != data.end(); ++it1,++j) {
-        std::string s(it.value());
-        auto v1 = std::complex<double>(std::stod(s),0);
-        std::string s1(it1.value());
-        auto v2 = std::complex<double>(std::stod(s1),0);
+        //std::string s(it.value());
+        //auto v1 = std::complex<double>(std::stod(s),0);
+        //std::string s1(it1.value());
+        //auto v2 = std::complex<double>(std::stod(s1),0);
         //std::cout << "key: " << it.key() << ", value:" << std::stod(s) << '\n';
         //std::cout << "key: " << it1.key() << ", value:" << std::stod(s1) << '\n';
 
         //std::cout<<"\n";
-        auto Z1 = pqMerge(it.key(),it1.key());
-        auto Z2 = pqMerge(it1.key(),it.key());
+        //auto Z1 = pqMerge(it.key(),it1.key());
+        //auto Z2 = pqMerge(it1.key(),it.key());
 
-        auto _tmp = Z1.first*std::conj(v1)*v2+Z2.first*std::conj(v2)*v1;
+        //auto _tmp = Z1.first*std::conj(v1)*v2+Z2.first*std::conj(v2)*v1;
 
-        if(Z1.second == Z2.second && _tmp.real()<1e-6) {
+        /*if(Z1.second == Z2.second && std::abs(_tmp.real())<1e-6) {
           continue;
+        }*/
+        if (is_an_edge(it.key(),it1.key())) {
+            continue;
         }
         else {
           //std::cout<<Z1.second<<" "<<Z2.second<<" "<<i+1<<" "<<j+1<<"\n";
