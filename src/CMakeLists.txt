@@ -8,6 +8,8 @@ set(HEADER_LIST
 add_library(ClqPart
   JsonGraph.cc
   graphColor.cc
+  graph.cc
+  input.cc
   ${HEADER_LIST}
   )
 

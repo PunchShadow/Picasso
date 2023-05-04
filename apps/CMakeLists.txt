@@ -24,6 +24,10 @@ target_link_libraries(jsonmtx PUBLIC ClqPart)
 add_executable(gcol appGraphColor.cc)
 target_include_directories(gcol PUBLIC "${PROJECT_SOURCE_DIR}/include") 
 target_link_libraries(gcol PUBLIC ClqPart)
+
+add_executable(tGraph testGraphIn.cc)
+target_include_directories(tGraph PUBLIC "${PROJECT_SOURCE_DIR}/include") 
+target_link_libraries(tGraph PUBLIC ClqPart)
 #message(STATUS "ColPack: found=${ColPack_FOUND}, include_dirs=${ColPack_INCDIR}, "
 #  "lib=${ColPack_LIBDIR}, version=${ColPack_VERSION}")
   #target_include_directories(gstream PUBLIC
