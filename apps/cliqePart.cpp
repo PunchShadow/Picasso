@@ -61,6 +61,8 @@ int main(int argc, char* argv[]) {
     else{
         if(bVerbose) fprintf(stdout,"\ngraph: %s\norder: %s\nmethd: %s\nGeneral Graph Coloring\n",fname.c_str(), order.c_str(), methd.c_str());
         GraphColoringInterface *g = new GraphColoringInterface(SRC_FILE, fname.c_str(), "AUTO_DETECTED");
+        fprintf(stdout, "graph reading complete\n");
+        printf("%d\n", g->GetEdgeCount());
         g->Coloring(order.c_str(), methd.c_str());
         
         if(bVerbose) {
