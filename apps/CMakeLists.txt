@@ -25,6 +25,10 @@ add_executable(gcol appGraphColor.cc)
 target_include_directories(gcol PUBLIC "${PROJECT_SOURCE_DIR}/include") 
 target_link_libraries(gcol PUBLIC ClqPart)
 
+add_executable(grdcol appGreedyColor.cc)
+target_include_directories(grdcol PUBLIC "${PROJECT_SOURCE_DIR}/include") 
+target_link_libraries(grdcol PUBLIC ClqPart)
+
 add_executable(tGraph testGraphIn.cc)
 target_include_directories(tGraph PUBLIC "${PROJECT_SOURCE_DIR}/include") 
 target_link_libraries(tGraph PUBLIC ClqPart)

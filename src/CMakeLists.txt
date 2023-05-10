@@ -2,6 +2,10 @@ set(HEADER_LIST
   "${PROJECT_SOURCE_DIR}/include/ClqPart/Types.h"
   "${PROJECT_SOURCE_DIR}/include/ClqPart/JsonGraph.h"
   "${PROJECT_SOURCE_DIR}/include/ClqPart/graphColor.h"
+  "${PROJECT_SOURCE_DIR}/include/ClqPart/graph.h"
+  "${PROJECT_SOURCE_DIR}/include/ClqPart/input.h"
+  "${PROJECT_SOURCE_DIR}/include/ClqPart/utility.h"
+  "${PROJECT_SOURCE_DIR}/include/ClqPart/greedyColor.h"
     )
 
 # Make an automatic library - will be static or dynamic based on user setting
@@ -10,6 +14,8 @@ add_library(ClqPart
   graphColor.cc
   graph.cc
   input.cc
+  greedyColor.cc
+  utility.cc
   ${HEADER_LIST}
   )
 

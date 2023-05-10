@@ -44,3 +44,4 @@
 build/
 large-graphs/
 .DS_Store
+data

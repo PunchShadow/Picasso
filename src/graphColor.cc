@@ -53,6 +53,7 @@ ColorStat colorGeneralGraph( std::string inFile, std::string outColorFile, std::
   g->GetVertexColors(vColors);
 
   if(myfile.is_open()) {
+    myfile<<nColor<<"\n";
     for(NODE_T i=0;i<vColors.size();i++) { 
       myfile<< i <<" "<<vColors[i]<<"\n";
     }
