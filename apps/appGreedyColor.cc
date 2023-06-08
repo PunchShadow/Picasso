@@ -63,7 +63,7 @@ int main(int argC, char *argV[]) {
   greedyCol.colorVertices();
   
   std::vector<NODE_T> colors = greedyCol.getColors();
-  std::cout<<"coloring completed. num of colors: "<<greedyCol.getNumColors()<<std::endl;
+  std::cout<<"coloring completed. num of colors: "<<greedyCol.getNumColors()<< " order + color time: "<< greedyCol.getOrderTime() <<" + "<<greedyCol.getColorTime()<<std::endl;
 
   if(outFname != "") {
     std::ofstream myfile(outFname);

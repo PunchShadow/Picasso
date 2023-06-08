@@ -25,7 +25,7 @@ using VAL_T = float;
 //The summation type
 using SUM_T = double;
 //Change this to long if number of nodes does not fit into integer
-using  NODE_T = long long;
+using  NODE_T = int;
 
 //Change this to long if number of edges does not fit into integer
 //typedef  unsigned int EDGE_T;

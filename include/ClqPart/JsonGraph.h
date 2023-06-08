@@ -24,12 +24,12 @@
 #include <vector>
 #include <string>
 
+#include <omp.h>
 namespace ClqPart {
 
   struct Edge {
     NODE_T u;
     NODE_T v;
-    VAL_T weight;
   };
 
   struct Graph {
@@ -39,6 +39,8 @@ namespace ClqPart {
   };
   
   class JsonGraph {
+    double generateTime;
+    double writeTime;
     public:
       JsonGraph() {}
 
@@ -47,7 +49,10 @@ namespace ClqPart {
       {}
 
       void ReadJsonAdjacencyGraph(); 
+      void ReadConstructWriteGraph(std::string fileName); 
       void writeGraphMtx(std::string fileName);
+      double getGenTime() {return generateTime;}
+      double getWriteTime() {return writeTime;}
 
     protected:
       std::string inputFile;

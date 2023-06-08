@@ -63,6 +63,7 @@ void GreedyColor::orderLargestFirst() {
 
 void GreedyColor::colorVertices() {
 
+  double t1 = omp_get_wtime();
   NODE_T n = G.numberOfNodes();
   std::vector<NODE_T> candColors(n,-1);
  
@@ -71,10 +72,14 @@ void GreedyColor::colorVertices() {
       colors[u] = firstAvailColor(u,candColors);
   }
   nColors = *std::max_element(colors.begin(),colors.end()) + 1;
+  colorTime = omp_get_wtime() - t1;
 }
 
 void GreedyColor::orderVertices() {
+
+  double t1 = omp_get_wtime();
   if (orderName == "LARGEST_FIRST" ) {
     orderLargestFirst(); 
   }
+  orderTime = omp_get_wtime() - t1;
 }

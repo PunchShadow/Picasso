@@ -21,12 +21,16 @@
 
 #include "ClqPart/graph.h"
 
+#include <omp.h>
+
 class GreedyColor {
   std::string orderName;
   std::vector<NODE_T> vertexOrder; 
   std::vector<NODE_T> colors;
   LightGraph &G;
   NODE_T nColors;
+  double orderTime;
+  double colorTime;
 
 public:
 
@@ -41,6 +45,8 @@ public:
   void orderVertices(); 
   void colorVertices();
   NODE_T getNumColors() {return nColors;}
+  double getOrderTime() {return orderTime;}
+  double getColorTime() {return colorTime;}
   std::vector<NODE_T> getColors() { return colors;}
 
 private:

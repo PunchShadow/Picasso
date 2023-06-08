@@ -141,7 +141,9 @@ namespace ClqPart {
     } 
     */
     
+    double t1 = omp_get_wtime();     
     auto i=0;
+    std::cout<<graph.edgeList.max_size()<<std::endl;
     for (auto it = data.begin(); it != std::prev(data.end(),1); ++it, ++i)
     {
       auto j=i+1;
@@ -167,13 +169,17 @@ namespace ClqPart {
         }
         else {
           //std::cout<<Z1.second<<" "<<Z2.second<<" "<<i+1<<" "<<j+1<<"\n";
-          Edge e{i,j,1.0};
+          Edge e{i,j};
           graph.edgeList.push_back(e);
+          if(graph.edgeList.size() % 10000000 == 0) {
+            std::cout<<graph.edgeList.size()<<std::endl; 
+          }
         }
       }
     }
     graph.n = i+1;
     graph.m = graph.edgeList.size();
+    generateTime = omp_get_wtime() - t1;
   }
 
 
@@ -185,17 +191,70 @@ namespace ClqPart {
     }
     std::ofstream myfile(fileName.c_str());
 
+    double t1 = omp_get_wtime();     
     if(myfile.is_open())
     {
-        myfile << "%%MatrixMarket matrix coordinate real symmetric"<<std::endl;
+        myfile << "%%MatrixMarket matrix coordinate pattern symmetric"<<std::endl;
         myfile << graph.n<<" "<<graph.n<<" "<<graph.m<<"\n";
         for(auto elem: graph.edgeList) { 
-          myfile<< elem.v+1<<" "<<elem.u+1<<" "<<elem.weight<<"\n";
+          myfile<< elem.v+1<<" "<<elem.u+1<<"\n";
         }
         myfile.close();
     }
     else
         std::cout<<"unable to open file"<<std::endl;
+
+    writeTime = omp_get_wtime() - t1;
      
+  }
+  void JsonGraph::ReadConstructWriteGraph(std::string fileName) {
+
+    std::ifstream f(inputFile);
+    if (!f.is_open()) {
+      std::cout<< "failed to open "<< inputFile<< "\n";
+      exit(1);
+    }
+    if(fileTypeCheck(fileName,"mtx")==false) {
+      std::cout << "file type is not mtx"<<std::endl;
+      std::exit(1);
+    }
+
+    std::ofstream myfile(fileName.c_str());
+
+    if(myfile.is_open() == false) {
+      std::cout<<"unable to open file"<<std::endl; 
+      exit(1);
+    }
+    json data = json::parse(f);  
+    //json::iterator it = data.begin(); 
+    
+    /*
+    for (auto& [key, val] : data.items())
+    {
+      std::string s(val);
+      std::cout << std::fixed<< "key: " << key << ", value:" << std::stod(s) << '\n';
+    } 
+    */
+    
+    double t1 = omp_get_wtime();     
+    NODE_T i=0;
+    EDGE_T m = 0;
+    for (auto it = data.begin(); it != std::prev(data.end(),1); ++it, ++i)
+    {
+      auto j=i+1;
+      for (auto it1 = std::next(it,1); it1 != data.end(); ++it1,++j) {
+        if (is_an_edge(it.key(),it1.key())) {
+            continue;
+        }
+        else {
+          //std::cout<<Z1.second<<" "<<Z2.second<<" "<<i+1<<" "<<j+1<<"\n";
+          m++;
+          myfile<<j+1<<" "<<i+1<<"\n";
+        }
+      }
+    }
+    NODE_T n = i+1;
+    myfile<<n<<" "<<n<<" "<<m<<std::endl;
+    generateTime = omp_get_wtime() - t1;
   }
 }

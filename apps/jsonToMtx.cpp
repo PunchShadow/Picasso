@@ -48,7 +48,9 @@ int main(int argC, char *argV[]) {
 
   ClqPart::JsonGraph jsongraph(inFname); 
   jsongraph.ReadJsonAdjacencyGraph();
+  std::cout<<"read and graph construction time: " << jsongraph.getGenTime()<<"\n";
   jsongraph.writeGraphMtx(outFname);
    
+  std::cout<<"graph write time " << jsongraph.getWriteTime()<<"\n";
   return 0;
 }
