@@ -29,9 +29,18 @@ add_executable(grdcol appGreedyColor.cc)
 target_include_directories(grdcol PUBLIC "${PROJECT_SOURCE_DIR}/include") 
 target_link_libraries(grdcol PUBLIC ClqPart)
 
+add_executable(palcol appPaletteColor.cc)
+target_include_directories(palcol PUBLIC "${PROJECT_SOURCE_DIR}/include") 
+target_link_libraries(palcol PUBLIC ClqPart)
+
+add_executable(palcolS appPalColDir.cc)
+target_include_directories(palcolS PUBLIC "${PROJECT_SOURCE_DIR}/include") 
+target_link_libraries(palcolS PUBLIC ClqPart)
+
 add_executable(tGraph testGraphIn.cc)
 target_include_directories(tGraph PUBLIC "${PROJECT_SOURCE_DIR}/include") 
 target_link_libraries(tGraph PUBLIC ClqPart)
+
 #message(STATUS "ColPack: found=${ColPack_FOUND}, include_dirs=${ColPack_INCDIR}, "
 #  "lib=${ColPack_LIBDIR}, version=${ColPack_VERSION}")
   #target_include_directories(gstream PUBLIC

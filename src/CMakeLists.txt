@@ -6,6 +6,7 @@ set(HEADER_LIST
   "${PROJECT_SOURCE_DIR}/include/ClqPart/input.h"
   "${PROJECT_SOURCE_DIR}/include/ClqPart/utility.h"
   "${PROJECT_SOURCE_DIR}/include/ClqPart/greedyColor.h"
+  "${PROJECT_SOURCE_DIR}/include/ClqPart/paletteCol.h"
     )
 
 # Make an automatic library - will be static or dynamic based on user setting
@@ -15,6 +16,7 @@ add_library(ClqPart
   graph.cc
   input.cc
   greedyColor.cc
+  paletteColor.cc
   utility.cc
   ${HEADER_LIST}
   )

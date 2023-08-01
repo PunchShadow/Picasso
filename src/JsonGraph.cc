@@ -19,14 +19,12 @@
 
 #include "ClqPart/JsonGraph.h"
 
-#include "nlohmann/json.hpp"
 #include <iostream>
 #include <fstream>
 #include <cmath>
 #include <complex>
 #include <string>
 
-using json = nlohmann::ordered_json;
 
 namespace ClqPart {
   std::pair<std::complex<double>,std::string> pqMerge(std::string P, std::string Q)
@@ -125,12 +123,6 @@ namespace ClqPart {
 
   void JsonGraph::ReadJsonAdjacencyGraph() {
 
-    std::ifstream f(inputFile);
-    if (!f.is_open()) {
-      std::cout<< "failed to open "<< inputFile<< "\n";
-      exit(1);
-    }
-    json data = json::parse(f);  
     //json::iterator it = data.begin(); 
     
     /*
@@ -144,6 +136,8 @@ namespace ClqPart {
     double t1 = omp_get_wtime();     
     auto i=0;
     std::cout<<graph.edgeList.max_size()<<std::endl;
+
+    //data.end() --> one past the last element
     for (auto it = data.begin(); it != std::prev(data.end(),1); ++it, ++i)
     {
       auto j=i+1;
@@ -171,15 +165,48 @@ namespace ClqPart {
           //std::cout<<Z1.second<<" "<<Z2.second<<" "<<i+1<<" "<<j+1<<"\n";
           Edge e{i,j};
           graph.edgeList.push_back(e);
-          if(graph.edgeList.size() % 10000000 == 0) {
-            std::cout<<graph.edgeList.size()<<std::endl; 
-          }
         }
       }
     }
     graph.n = i+1;
     graph.m = graph.edgeList.size();
     generateTime = omp_get_wtime() - t1;
+  }
+
+  void JsonGraph::advance() {
+     
+    ++it1;
+    if(it1 == data.end())
+    {
+      ++it; 
+      it1 = std::next(it,1);
+      u++;
+      v=u+1;
+    } 
+    else {
+      v++; 
+    }
+  } 
+
+  bool JsonGraph::nextEdge( Edge &e ) {
+    while(1) {
+      if(it == std::prev(data.end(),1)) {
+        return false;      
+      }
+      if (is_an_edge(it.key(),it1.key())) {
+        advance();
+        continue;
+      }
+      else {
+        e.u = u;
+        e.v = v;
+        advance();
+        numEdge++;
+        return true;
+      }
+
+    }
+     
   }
 
 

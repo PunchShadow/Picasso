@@ -23,8 +23,14 @@
 #include "Types.h"
 #include <vector>
 #include <string>
+#include <fstream>
+#include <iostream>
 
 #include <omp.h>
+#include "nlohmann/json.hpp"
+
+using json = nlohmann::ordered_json;
+
 namespace ClqPart {
 
   struct Edge {
@@ -41,18 +47,38 @@ namespace ClqPart {
   class JsonGraph {
     double generateTime;
     double writeTime;
+    json data;
+    json::iterator it,it1;
+    NODE_T u,v;
+    EDGE_T numEdge;
     public:
       JsonGraph() {}
 
-      JsonGraph(std::string inFile)
-        :inputFile(inFile) 
-      {}
+      JsonGraph(std::string inFile,bool stream=false):inputFile(inFile) {    
+        numEdge = 0;
+        std::ifstream f(inputFile);
+        if (!f.is_open()) {
+          std::cout<< "failed to open "<< inputFile<< "\n";
+          exit(1);
+        }
+        data = json::parse(f);  
+        f.close();
 
+        if(stream == true) {
+          it = data.begin(); 
+          it1 = std::next(it,1);
+          u = 0;
+          v = 1;
+        }
+      }
+      void advance();
+      bool nextEdge(Edge &);
       void ReadJsonAdjacencyGraph(); 
       void ReadConstructWriteGraph(std::string fileName); 
       void writeGraphMtx(std::string fileName);
       double getGenTime() {return generateTime;}
       double getWriteTime() {return writeTime;}
+      NODE_T numOfData() {return data.size();}
 
     protected:
       std::string inputFile;

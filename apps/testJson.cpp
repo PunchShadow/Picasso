@@ -22,7 +22,7 @@
 #include <iostream>
 #include <fstream>
 
-using json = nlohmann::json;
+//using json = nlohmann::json;
 
 int main(int argC, char *argV[]) {
   cxxopts::Options options("testjson", "read json file"); 

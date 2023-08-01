@@ -17,6 +17,7 @@
  */
 
 #include "ClqPart/utility.h"
+#include <iostream>
 
 void getDegrees(LightGraph &G, std::vector<NODE_T> &degrees) {
   NODE_T n = G.numberOfNodes();
@@ -24,4 +25,35 @@ void getDegrees(LightGraph &G, std::vector<NODE_T> &degrees) {
     degrees[i] = G.IA[i+1] - G.IA[i]; 
   }
   
+}
+
+
+std::pair<NODE_T,NODE_T> getMaxDegreeNode(LightGraph &G) {
+
+  std::vector <NODE_T> degrees(G.numberOfNodes());
+  getDegrees(G,degrees);
+
+  auto result =  std::max_element(degrees.begin(),degrees.end());
+
+  return std::make_pair(std::distance(degrees.begin(),result), *result);
+  
+}
+
+bool isValidColoring(LightGraph &G, std::vector<NODE_T> &colors) {
+    
+  NODE_T n = G.numberOfNodes();
+
+  for(NODE_T i=0;i<n;i++) {
+    auto col = colors[i]; 
+    //std::cout<<i<<" "<<colors[i]<<std::endl;
+    if (col == -2) continue;
+    for( EDGE_T j=G.IA[i];j<G.IA[i+1];j++) {
+      if (colors[G.JA[j]] == col) {
+        //std::cout<<G.JA[j]<<" "<<colors[G.JA[j]]<<std::endl;
+        return false; 
+      } 
+    }
+  }
+  return true;
+
 }
