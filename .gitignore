@@ -45,4 +45,4 @@ build/
 large-graphs/
 .DS_Store
 data
-pauli_ket_ccsd_data
+#pauli_ket_ccsd_data
