@@ -28,7 +28,7 @@ if(PROJECT_SOURCE_DIR STREQUAL PROJECT_BINARY_DIR)
 endif()
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
-find_package(ColPack REQUIRED)
+#find_package(ColPack REQUIRED)
 find_package(OpenMP REQUIRED)
 
 

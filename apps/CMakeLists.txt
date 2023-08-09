@@ -1,13 +1,13 @@
 # Make an automatic library - will be static or dynamic based on user setting
-add_executable(cliqePart cliqePart.cpp)
-target_link_libraries(cliqePart PUBLIC ${ColPack_LIBS})
-target_link_directories(cliqePart PUBLIC ${ColPack_LIBDIR})
-target_include_directories(cliqePart PUBLIC ${ColPack_INCDIR})
-target_include_directories(cliqePart PUBLIC "${PROJECT_SOURCE_DIR}/include") 
+#add_executable(cliqePart cliqePart.cpp)
+#target_link_libraries(cliqePart PUBLIC ${ColPack_LIBS})
+#target_link_directories(cliqePart PUBLIC ${ColPack_LIBDIR})
+#target_include_directories(cliqePart PUBLIC ${ColPack_INCDIR})
+#target_include_directories(cliqePart PUBLIC "${PROJECT_SOURCE_DIR}/include") 
 
-if(OpenMP_CXX_FOUND)
-  target_link_libraries(cliqePart PUBLIC OpenMP::OpenMP_CXX)
-endif()
+#if(OpenMP_CXX_FOUND)
+#  target_link_libraries(cliqePart PUBLIC OpenMP::OpenMP_CXX)
+#endif()
 
 add_executable(testjson testJson.cpp)
 target_include_directories(testjson PUBLIC "${PROJECT_SOURCE_DIR}/include") 
