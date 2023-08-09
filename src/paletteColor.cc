@@ -334,3 +334,5 @@ void PaletteColor::confColorGreedy() {
 }
 
 
+
+

@@ -31,11 +31,9 @@
 
 int main(int argC, char *argV[]) {
   
-  cxxopts::Options options("palettecol", "read json pauli string files and color the graph using palette coloring algorithm"); 
+  cxxopts::Options options("naivecol", "read json pauli string files and color the graph using naive coloring algorithm"); 
   options.add_options()
     ("in,infile", "input json file name", cxxopts::value<std::string>())
-    ("t,target", "target color", cxxopts::value<NODE_T>())
-    ("a,alpha", "coefficient to log(n)", cxxopts::value<float>()->default_value("1.0"))
 //("out,outfile", "output color file name", cxxopts::value<std::string>()->default_value(""))
     //("o,order", "LARGEST_FIRST,SMALLEST_LAST,NATURAL,RANDOM,DYNAMIC_LARGEST_FIRST,INCIDENCE_DEGREE",cxxopts::value<std::string>()->default_value("LARGEST_FIRST"))
     ("h,help", "print usage")
@@ -43,8 +41,6 @@ int main(int argC, char *argV[]) {
 
   //std::string inFname, outFname,order;
   std::string inFname;
-  NODE_T target;
-  float alpha;
   try{
     auto result = options.parse(argC,argV);
     if (result.count("help")) {
@@ -52,10 +48,6 @@ int main(int argC, char *argV[]) {
           std::exit(0);
     }
     inFname = result["infile"].as<std::string>();
-    target = result["target"].as<NODE_T>();
-    alpha = result["alpha"].as<float>();
-    //outFname = result["outfile"].as<std::string>();
-    //order = result["order"].as<std::string>(); 
   }
   catch(cxxopts::exceptions::exception &exp) {
     std::cout<<options.help()<<std::endl;
@@ -63,10 +55,36 @@ int main(int argC, char *argV[]) {
   }
 
   ClqPart::JsonGraph jsongraph(inFname,true); 
-  Input input(inFname);
   NODE_T n = jsongraph.numOfData();
+  //jsongraph.printData();
+
+  std::vector<NODE_T> forbiddenCol(n,-1);
+  std::vector<NODE_T> colors(n,-1);
   
-  PaletteColor palcol(n,target,alpha);
+  colors[0] = 0;
+  for(auto u=1 ; u<n; u++) {
+    //populate the forbidden colors for u
+    for(auto v=0; v<u; v++) {
+      if(jsongraph.is_an_edge(v,u) == false) { 
+        if (colors[v] != -1) {
+          forbiddenCol[colors[v]] = u;
+        }
+      }
+    } 
+    //color u with first available color
+    for( auto i=0;i<n;i++) {
+      if(forbiddenCol[i] == -1) {
+        colors[u] = i; 
+        break;
+      } 
+    }
+  }
+  
+  NODE_T nColors = *std::max_element(colors.begin(),colors.end()) + 1;
+  std::cout<<jsongraph.numOfData()<<" "
+    <<jsongraph.getNumEdge()<<" "
+    <<nColors<<std::endl;
+  /*PaletteColor palcol(n,target,alpha);
 
   ClqPart::Edge e;
   double t1 = omp_get_wtime();
@@ -80,6 +98,7 @@ int main(int argC, char *argV[]) {
   std::vector< std::vector<NODE_T> > confEdges = palcol.getConfAdjList();
   palcol.confColorGreedy();
   std::vector<NODE_T> colors = palcol.getColors();
+  */
   /*
   std::vector<NODE_T> colHist(n/7,0);
   for(auto u:colors) {
@@ -91,6 +110,5 @@ int main(int argC, char *argV[]) {
      unassigned++; 
   }
   */
-  std::cout<<palcol.getNumColors()<<std::endl;
   return 0;
 }  

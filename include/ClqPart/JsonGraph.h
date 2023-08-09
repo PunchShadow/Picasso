@@ -31,6 +31,7 @@
 
 using json = nlohmann::ordered_json;
 
+
 namespace ClqPart {
 
   struct Edge {
@@ -48,14 +49,16 @@ namespace ClqPart {
     double generateTime;
     double writeTime;
     json data;
-    json::iterator it,it1;
+    json dataAr;
+    //json::iterator it,it1,beginIt;
     NODE_T u,v;
-    EDGE_T numEdge;
+    EDGE_T numEdgeCom;
+    NODE_T numDataPoints;
     public:
       JsonGraph() {}
 
       JsonGraph(std::string inFile,bool stream=false):inputFile(inFile) {    
-        numEdge = 0;
+        numEdgeCom = 0;
         std::ifstream f(inputFile);
         if (!f.is_open()) {
           std::cout<< "failed to open "<< inputFile<< "\n";
@@ -64,21 +67,36 @@ namespace ClqPart {
         data = json::parse(f);  
         f.close();
 
+        dataAr = nlohmann::json::array();
+        for (auto& el : data.items()) {
+          json pair = json::array();
+          pair.push_back(el.key());
+          pair.push_back(el.value());
+          dataAr.push_back(pair);
+        }
+        
+        numDataPoints = dataAr.size();
+        //beginIt = data.begin();
         if(stream == true) {
-          it = data.begin(); 
-          it1 = std::next(it,1);
+          //it = data.begin(); 
+          //it1 = std::next(it,1);
           u = 0;
           v = 1;
         }
       }
-      void advance();
+      //void advance();
+      void nextIndices();
+      bool is_an_edge(std::string, std::string);
+      bool is_an_edge(NODE_T, NODE_T);
       bool nextEdge(Edge &);
       void ReadJsonAdjacencyGraph(); 
       void ReadConstructWriteGraph(std::string fileName); 
       void writeGraphMtx(std::string fileName);
       double getGenTime() {return generateTime;}
       double getWriteTime() {return writeTime;}
-      NODE_T numOfData() {return data.size();}
+      NODE_T numOfData() {return numDataPoints;}
+      NODE_T getNumEdge() {return numEdgeCom;}
+      void printData();
 
     protected:
       std::string inputFile;

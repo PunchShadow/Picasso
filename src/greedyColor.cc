@@ -83,3 +83,4 @@ void GreedyColor::orderVertices() {
   }
   orderTime = omp_get_wtime() - t1;
 }
+
