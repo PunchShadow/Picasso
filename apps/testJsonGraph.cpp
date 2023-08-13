@@ -45,8 +45,10 @@ int main(int argC, char *argV[]) {
     exit(1);
   }
 
-  ClqPart::JsonGraph jsongraph(fname); 
-  jsongraph.ReadJsonAdjacencyGraph();
+  ClqPart::JsonGraph jsongraph(fname,true); 
+  NODE_T n = jsongraph.numOfData();
+  std::cout<<n<<std::endl;
+  //jsongraph.ReadJsonAdjacencyGraph();
    
   return 0;
 }

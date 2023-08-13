@@ -64,8 +64,10 @@ namespace ClqPart {
           std::cout<< "failed to open "<< inputFile<< "\n";
           exit(1);
         }
+        std::cout<<"data reading starts"<<"\n";
         data = json::parse(f);  
         f.close();
+        std::cout<<"data reading ends"<<"\n";
 
         dataAr = nlohmann::json::array();
         for (auto& el : data.items()) {
@@ -76,6 +78,7 @@ namespace ClqPart {
         }
         
         numDataPoints = dataAr.size();
+        //std::cout<<numDataPoints<<std::endl;
         //beginIt = data.begin();
         if(stream == true) {
           //it = data.begin(); 
@@ -94,7 +97,7 @@ namespace ClqPart {
       void writeGraphMtx(std::string fileName);
       double getGenTime() {return generateTime;}
       double getWriteTime() {return writeTime;}
-      NODE_T numOfData() {return numDataPoints;}
+      NODE_T numOfData() { return numDataPoints;}
       NODE_T getNumEdge() {return numEdgeCom;}
       void printData();
 

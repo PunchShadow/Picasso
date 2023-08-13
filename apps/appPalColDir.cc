@@ -63,7 +63,6 @@ int main(int argC, char *argV[]) {
   }
 
   ClqPart::JsonGraph jsongraph(inFname,true); 
-  Input input(inFname);
   NODE_T n = jsongraph.numOfData();
   
   PaletteColor palcol(n,target,alpha);
