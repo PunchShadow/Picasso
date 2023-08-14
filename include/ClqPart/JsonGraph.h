@@ -29,7 +29,8 @@
 #include <omp.h>
 #include "nlohmann/json.hpp"
 
-using json = nlohmann::ordered_json;
+//using json = nlohmann::ordered_json;
+using json = nlohmann::json;
 
 
 namespace ClqPart {
@@ -69,7 +70,8 @@ namespace ClqPart {
         f.close();
         std::cout<<"data reading ends"<<"\n";
 
-        dataAr = nlohmann::json::array();
+        //dataAr = nlohmann::json::array();
+        dataAr = json::array();
         for (auto& el : data.items()) {
           json pair = json::array();
           pair.push_back(el.key());

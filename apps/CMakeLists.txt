@@ -13,6 +13,7 @@
 add_executable(testjson testJsonGraph.cpp)
 target_include_directories(testjson PUBLIC "${PROJECT_SOURCE_DIR}/include") 
 target_link_libraries(testjson PUBLIC ClqPart)
+target_compile_options(testjson PRIVATE -O3 )
 
 add_executable(jsonmtx jsonToMtx.cpp)
 target_include_directories(jsonmtx PUBLIC "${PROJECT_SOURCE_DIR}/include") 
@@ -29,10 +30,12 @@ target_link_libraries(grdcol PUBLIC ClqPart)
 add_executable(palcol appPaletteColor.cc)
 target_include_directories(palcol PUBLIC "${PROJECT_SOURCE_DIR}/include") 
 target_link_libraries(palcol PUBLIC ClqPart)
+target_compile_options(palcol PRIVATE -O3 )
 
 add_executable(palcolS appPalColDir.cc)
 target_include_directories(palcolS PUBLIC "${PROJECT_SOURCE_DIR}/include") 
 target_link_libraries(palcolS PUBLIC ClqPart)
+target_compile_options(palcolS PRIVATE -O3 )
 
 add_executable(naiveCol appNaiveColDir.cc)
 target_include_directories(naiveCol PUBLIC "${PROJECT_SOURCE_DIR}/include") 
