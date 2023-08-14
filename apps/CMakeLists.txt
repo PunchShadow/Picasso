@@ -9,13 +9,11 @@
 #  target_link_libraries(cliqePart PUBLIC OpenMP::OpenMP_CXX)
 #endif()
 
-add_executable(testjson testJson.cpp)
+
+add_executable(testjson testJsonGraph.cpp)
 target_include_directories(testjson PUBLIC "${PROJECT_SOURCE_DIR}/include") 
 target_link_libraries(testjson PUBLIC ClqPart)
-
-add_executable(jsongraph testJsonGraph.cpp)
-target_include_directories(jsongraph PUBLIC "${PROJECT_SOURCE_DIR}/include") 
-target_link_libraries(jsongraph PUBLIC ClqPart)
+target_compile_options(testjson PRIVATE -O3 )
 
 add_executable(jsonmtx jsonToMtx.cpp)
 target_include_directories(jsonmtx PUBLIC "${PROJECT_SOURCE_DIR}/include") 
@@ -32,10 +30,12 @@ target_link_libraries(grdcol PUBLIC ClqPart)
 add_executable(palcol appPaletteColor.cc)
 target_include_directories(palcol PUBLIC "${PROJECT_SOURCE_DIR}/include") 
 target_link_libraries(palcol PUBLIC ClqPart)
+target_compile_options(palcol PRIVATE -O3 )
 
 add_executable(palcolS appPalColDir.cc)
 target_include_directories(palcolS PUBLIC "${PROJECT_SOURCE_DIR}/include") 
 target_link_libraries(palcolS PUBLIC ClqPart)
+target_compile_options(palcolS PRIVATE -O3 )
 
 add_executable(palcolE appPalColEnc.cc)
 target_include_directories(palcolE PUBLIC "${PROJECT_SOURCE_DIR}/include") 

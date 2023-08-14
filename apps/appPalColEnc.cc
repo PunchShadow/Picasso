@@ -62,14 +62,15 @@ int main(int argC, char *argV[]) {
     exit(1);
   }
 
-  ClqPart::JsonGraph jsongraph(inFname,true); 
+  ClqPart::JsonGraph jsongraph(inFname, true, true); 
+  Input input(inFname);
   NODE_T n = jsongraph.numOfData();
   
   PaletteColor palcol(n,target,alpha);
 
   ClqPart::Edge e;
   double t1 = omp_get_wtime();
-  while(jsongraph.nextEdge(e)) {
+  while(jsongraph.nextEdge<std::vector<uint32_t>>(e)) {
      palcol.buildStreamConfGraph(e.u,e.v); 
   
   }

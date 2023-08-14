@@ -29,7 +29,8 @@
 #include <omp.h>
 #include "nlohmann/json.hpp"
 
-using json = nlohmann::ordered_json;
+//using json = nlohmann::ordered_json;
+using json = nlohmann::json;
 
 
 namespace ClqPart {
@@ -65,9 +66,12 @@ namespace ClqPart {
           std::cout<< "failed to open "<< inputFile<< "\n";
           exit(1);
         }
+        std::cout<<"data reading starts"<<"\n";
         data = json::parse(f);  
         f.close();
+        std::cout<<"data reading ends"<<"\n";
 
+<<<<<<< HEAD
         constexpr uint32_t num_encoded_bits = sizeof(uint32_t) * 4;
 
         // size_t num_terms = data.begin().key().size();
@@ -115,19 +119,20 @@ namespace ClqPart {
             // dataAr.push_back(pair);
             dataEnc.push_back(term_encoding);
           }
+          numDataPoints = dataEnc.size();
           std::cout << "Done encoding!" << std::endl;
         }
         else{
-          dataAr = nlohmann::json::array();
+          // dataAr = nlohmann::json::array();
+          dataAr = json::array();
           for (auto& el : data.items()) {
             json pair = json::array();
             pair.push_back(el.key());
             pair.push_back(el.value());
             dataAr.push_back(pair);
           }
+          numDataPoints = dataAr.size();
         }
-        
-        numDataPoints = data.size();
         //beginIt = data.begin();
         if(stream == true) {
           //it = data.begin(); 
@@ -190,7 +195,7 @@ namespace ClqPart {
       void writeGraphMtx(std::string fileName);
       double getGenTime() {return generateTime;}
       double getWriteTime() {return writeTime;}
-      NODE_T numOfData() {return numDataPoints;}
+      NODE_T numOfData() { return numDataPoints;}
       NODE_T getNumEdge() {return numEdgeCom;}
       void printData();
 
