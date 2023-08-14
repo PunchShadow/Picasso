@@ -36,15 +36,14 @@ int main(int argC, char *argV[]) {
     ("in,infile", "input json file name", cxxopts::value<std::string>())
     ("t,target", "target color", cxxopts::value<NODE_T>())
     ("a,alpha", "coefficient to log(n)", cxxopts::value<float>()->default_value("1.0"))
-//("out,outfile", "output color file name", cxxopts::value<std::string>()->default_value(""))
-    //("o,order", "LARGEST_FIRST,SMALLEST_LAST,NATURAL,RANDOM,DYNAMIC_LARGEST_FIRST,INCIDENCE_DEGREE",cxxopts::value<std::string>()->default_value("LARGEST_FIRST"))
+    ("s,stream", "streaming construction", cxxopts::value<bool>()->default_value("false"))
     ("h,help", "print usage")
     ;
 
-  //std::string inFname, outFname,order;
   std::string inFname;
   NODE_T target;
   float alpha;
+  bool isStream;
   try{
     auto result = options.parse(argC,argV);
     if (result.count("help")) {
@@ -54,42 +53,40 @@ int main(int argC, char *argV[]) {
     inFname = result["infile"].as<std::string>();
     target = result["target"].as<NODE_T>();
     alpha = result["alpha"].as<float>();
-    //outFname = result["outfile"].as<std::string>();
-    //order = result["order"].as<std::string>(); 
+    isStream = result["stream"].as<bool>();
   }
   catch(cxxopts::exceptions::exception &exp) {
     std::cout<<options.help()<<std::endl;
     exit(1);
   }
 
-  ClqPart::JsonGraph jsongraph(inFname,true); 
+  ClqPart::JsonGraph jsongraph(inFname,isStream); 
   NODE_T n = jsongraph.numOfData();
-  
   PaletteColor palcol(n,target,alpha);
 
-  ClqPart::Edge e;
   double t1 = omp_get_wtime();
-  while(jsongraph.nextEdge(e)) {
-     palcol.buildStreamConfGraph(e.u,e.v); 
-  
+  if(isStream){
+    ClqPart::Edge e;
+    while(jsongraph.nextEdge(e)) {
+       palcol.buildStreamConfGraph(e.u,e.v); 
+    
+    }
+  }
+  else { 
+    palcol.buildConfGraph(jsongraph);
   }
   double createConfTime = omp_get_wtime() - t1;
-  std::cout<<"creating conflict graph time: "<<createConfTime<<std::endl;
+  std::cout<<"Conflict graph construction time: "<<createConfTime<<std::endl;
 
   std::vector< std::vector<NODE_T> > confEdges = palcol.getConfAdjList();
   palcol.confColorGreedy();
   std::vector<NODE_T> colors = palcol.getColors();
-  /*
-  std::vector<NODE_T> colHist(n/7,0);
-  for(auto u:colors) {
-    if(u>=0) colHist[u]++; 
+  std::cout<<"# of colors: " <<palcol.getNumColors()<<std::endl;
+  
+  std::vector <NODE_T>  invVert = palcol.getInvVertices();
+  if(invVert.empty() == false) {
+    palcol.naiveGreedyColor(invVert, jsongraph, palcol.getNumColors());
+    std::cout<<"# of Final colors: " <<palcol.getNumColors()<<std::endl;
   }
-  for( auto c:colHist) {
-    std::cout<<c<<std::endl;
-    if(c==0)
-     unassigned++; 
-  }
-  */
-  std::cout<<palcol.getNumColors()<<std::endl;
   return 0;
 }  
