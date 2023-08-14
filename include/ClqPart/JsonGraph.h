@@ -71,7 +71,6 @@ namespace ClqPart {
         f.close();
         std::cout<<"data reading ends"<<"\n";
 
-<<<<<<< HEAD
         constexpr uint32_t num_encoded_bits = sizeof(uint32_t) * 4;
 
         // size_t num_terms = data.begin().key().size();
