@@ -18,6 +18,8 @@
 
 #pragma once
 
+// #define ENABLE_GPU
+
 #include "ClqPart/graph.h" 
 #include <random>
 
@@ -32,6 +34,12 @@ class PaletteColor {
   std::vector<NODE_T> confColors;
   NODE_T nColors;
   NODE_T nConflicts;
+
+  #ifdef ENABLE_GPU
+  NODE_T *d_colList;
+  NODE_T *d_colors;
+  NODE_T *d_confColors;
+  #endif
   
   std::vector<NODE_T> confVertices;
   std::vector<NODE_T> invalidVertices;
@@ -63,6 +71,9 @@ public:
     assignListColor();
   }
   void buildStreamConfGraph( NODE_T u, NODE_T v ); 
+  #ifdef ENABLE_GPU
+  void buildStreamConfGraphGpu();
+  #endif
   void confColor();
   void confColorGreedy();
   void confColorRand();

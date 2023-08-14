@@ -121,16 +121,35 @@ namespace ClqPart {
     }
   }
 
-  bool JsonGraph::is_an_edge(NODE_T u, NODE_T v) {
-    /*json::iterator bIt = data.begin();
-    auto itU = std::next(bIt,u);
-    auto itV = std::next(bIt,v);*/
-    
-    std::string P = dataAr[u][0];
-    std::string Q = dataAr[v][0];
-    return is_an_edge(P,Q);
-       
-  } 
+  bool JsonGraph::is_an_edge(const std::vector<uint32_t> &P_List, const std::vector<uint32_t> &Q_List) {
+    // transform_reduce P_list and Q_list by bitwise-and and popcount
+    uint32_t cnt = 0;
+    #pragma omp simd reduction(+:cnt)
+    for (int i = 0; i < P_List.size(); i++) {
+      cnt += __builtin_popcount(P_List[i] & Q_List[i]);
+    }
+    if (cnt & 0x1) {
+      return true;
+    }
+    else {
+      numEdgeCom++;
+      return false;
+    }
+  }
+
+  // bool JsonGraph::is_an_edge_alternative(std::vector<uint32_t> P, std::vector<uint32_t> Q, int num_terms) {
+  //   int cnt = 0;
+  //   for (int i = 0; i < P.size(); i++) {
+  //     cnt += __builtin_popcount(P[i] & Q[i]);
+  //   }
+  //   if (cnt & 0x1) {
+  //     return true;
+  //   }
+  //   else {
+  //     numEdgeCom++;
+  //     return false;
+  //   }
+  // } 
   
   bool static fileTypeCheck(std::string fn, std::string extension)
   {
@@ -221,30 +240,6 @@ namespace ClqPart {
       u++;
       v = u + 1; 
     } 
-  }
-
-  bool JsonGraph::nextEdge( Edge &e ) {
-    while(1) {
-      if(u >= numDataPoints-1) {
-        return false;      
-      }
-      if (is_an_edge(u,v)) {
-        //advance();
-        nextIndices();
-        continue;
-      }
-      else {
-        e.u = u;
-        e.v = v;
-        //advance();
-        nextIndices();
-        //numEdge++;
-        //std::cout<<numEdge<<std::endl;
-        return true;
-      }
-
-    }
-     
   }
 
   void JsonGraph::writeGraphMtx(std::string fileName) {

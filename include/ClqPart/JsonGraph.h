@@ -50,6 +50,7 @@ namespace ClqPart {
     double writeTime;
     json data;
     json dataAr;
+    std::vector<std::vector<uint32_t>> dataEnc;
     //json::iterator it,it1,beginIt;
     NODE_T u,v;
     EDGE_T numEdgeCom;
@@ -57,7 +58,7 @@ namespace ClqPart {
     public:
       JsonGraph() {}
 
-      JsonGraph(std::string inFile,bool stream=false):inputFile(inFile) {    
+      JsonGraph(std::string inFile,bool stream=false, bool encode=false):inputFile(inFile) {    
         numEdgeCom = 0;
         std::ifstream f(inputFile);
         if (!f.is_open()) {
@@ -67,15 +68,66 @@ namespace ClqPart {
         data = json::parse(f);  
         f.close();
 
-        dataAr = nlohmann::json::array();
-        for (auto& el : data.items()) {
-          json pair = json::array();
-          pair.push_back(el.key());
-          pair.push_back(el.value());
-          dataAr.push_back(pair);
+        constexpr uint32_t num_encoded_bits = sizeof(uint32_t) * 4;
+
+        // size_t num_terms = data.begin().key().size();
+        // size_t num_packed_ints = num_terms / 3;
+
+        // dataEnc = std::vector<std::vector<uint32_t>>(data.size(), std::vector<uint32_t>(num_packed_ints));
+        if(encode){
+          std::cout << "Encoding" << std::endl;
+          for (auto& el : data.items()){
+            // json pair = json::array();
+            std::vector<uint32_t> term_encoding;
+            uint32_t cnt = 0;
+            uint32_t encoded_int = 0;
+            for (auto& term : el.key()) {
+              if(cnt == num_encoded_bits/3){
+                term_encoding.push_back(encoded_int);
+                cnt = 0;
+                encoded_int = 0;
+              }
+              uint32_t mask = 0;
+              // I = 000 bits, X = 110 bits, Y = 101 bits, Z = 011 bits
+              if (term == 'I') {
+                mask = 0b000;
+              }
+              else if (term == 'X') {
+                mask = 0b110;
+              }
+              else if (term == 'Y') {
+                mask = 0b101;
+              }
+              else if (term == 'Z') {
+                mask = 0b011;
+              }
+              else {
+                std::cout << "Invalid term: " << term << std::endl;
+                exit(1);
+              }
+              encoded_int = encoded_int << 3;
+              encoded_int = encoded_int | mask;
+              cnt++;
+            }
+            term_encoding.push_back(encoded_int);
+            // pair.push_back(term_encoding);
+            // pair.push_back(el.value());
+            // dataAr.push_back(pair);
+            dataEnc.push_back(term_encoding);
+          }
+          std::cout << "Done encoding!" << std::endl;
+        }
+        else{
+          dataAr = nlohmann::json::array();
+          for (auto& el : data.items()) {
+            json pair = json::array();
+            pair.push_back(el.key());
+            pair.push_back(el.value());
+            dataAr.push_back(pair);
+          }
         }
         
-        numDataPoints = dataAr.size();
+        numDataPoints = data.size();
         //beginIt = data.begin();
         if(stream == true) {
           //it = data.begin(); 
@@ -84,11 +136,55 @@ namespace ClqPart {
           v = 1;
         }
       }
+
+      template <typename PauliTy = std::string>
+      bool is_an_edge(NODE_T u, NODE_T v) {
+        /*json::iterator bIt = data.begin();
+        auto itU = std::next(bIt,u);
+        auto itV = std::next(bIt,v);*/
+        
+        // if PauliTy is std::string
+        if (std::is_same<PauliTy, std::string>::value) {
+          PauliTy P = dataAr[u][0];
+          PauliTy Q = dataAr[v][0];
+          return is_an_edge(P,Q);
+        }
+        else{
+          const std::vector<uint32_t> &P = dataEnc[u];
+          const std::vector<uint32_t> &Q = dataEnc[v];
+          return is_an_edge(P,Q);
+        }
+      }
+
+      template <typename PauliTy = std::string>
+      bool nextEdge( Edge &e ) {
+        while(1) {
+          if(u >= numDataPoints-1) {
+            return false;      
+          }
+          if (is_an_edge<PauliTy>(u,v)) {
+            //advance();
+            nextIndices();
+            continue;
+          }
+          else {
+            e.u = u;
+            e.v = v;
+            //advance();
+            nextIndices();
+            //numEdge++;
+            //std::cout<<numEdge<<std::endl;
+            return true;
+          }
+
+        }
+        
+      }
+
       //void advance();
       void nextIndices();
       bool is_an_edge(std::string, std::string);
-      bool is_an_edge(NODE_T, NODE_T);
-      bool nextEdge(Edge &);
+      bool is_an_edge(const std::vector<uint32_t>&, const std::vector<uint32_t>&);
       void ReadJsonAdjacencyGraph(); 
       void ReadConstructWriteGraph(std::string fileName); 
       void writeGraphMtx(std::string fileName);

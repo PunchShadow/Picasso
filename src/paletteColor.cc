@@ -59,6 +59,30 @@ void PaletteColor::buildStreamConfGraph ( NODE_T eu, NODE_T ev) {
 
 }
 
+#ifdef ENABLE_GPU
+void PaletteColor::buildStreamConfGraphGpu () {
+
+  
+  std::vector<NODE_T> v(colList[eu].size());
+  std::vector<NODE_T>::iterator it;
+
+  //it = std::set_intersection(colList[eu].begin(),colList[eu].end(),
+  //  colList[ev].begin(),colList[ev].end(),v.begin());  
+
+  //v.resize(it - v.begin());
+  bool hasCommon = findFirstCommonElement(colList[eu],colList[ev]);
+  if(hasCommon == true ) {
+
+    confAdjList[eu].push_back(ev); 
+    confAdjList[ev].push_back(eu); 
+    nConflicts++;
+    //if(e.u == 0) std::cout<<e.v<<" ";
+    //confVertices[e.u]++;
+    //confVertices[e.v]++;
+  }
+}
+#endif // ENABLE_GPU
+
 
 void PaletteColor::assignListColor() {
 
@@ -86,6 +110,19 @@ void PaletteColor::assignListColor() {
     } 
     //if ( i== 0 || i == 6660) std::cout<<std::endl;
     std::stable_sort(colList[i].begin(),colList[i].end());
+
+    #ifdef ENABLE_GPU
+    // Convert colList to 1d array and copy to GPU
+    std::vector<NODE_T> colList1d(colList.size() * T);
+    for (NODE_T i = 0; i < colList.size(); i++) {
+      for (NODE_T j = 0; j < T; j++) {
+        colList1d[i * T + j] = colList[i][j];
+      }
+    }
+    // Copy colList1d to GPU
+    cudaMalloc(&d_colList, colList1d.size() * sizeof(NODE_T));
+    cudaMemcpy(d_colList, colList1d.data(), colList1d.size() * sizeof(NODE_T), cudaMemcpyHostToDevice);
+    #endif // ENABLE_GPU
   }
   assignTime = omp_get_wtime() - t1;
   std::cout<<"Assignment of Color Time: "<<assignTime<<std::endl;
