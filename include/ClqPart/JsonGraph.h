@@ -66,10 +66,8 @@ namespace ClqPart {
           std::cout<< "failed to open "<< inputFile<< "\n";
           exit(1);
         }
-        std::cout<<"data reading starts"<<"\n";
         data = json::parse(f);  
         f.close();
-        std::cout<<"data reading ends"<<"\n";
 
         constexpr uint32_t num_encoded_bits = sizeof(uint32_t) * 4;
 

@@ -37,30 +37,23 @@ bool findFirstCommonElement(const std::vector<NODE_T>& vec1, const std::vector<N
     return false; // No common element found
 }
 
+//This function checks whether the edge (eu,ev) (in complement graph) is a conflict. NOte that 
+//this is for constructing the graph in streaming way, so we are presented with
+//one edge at a time. (eu,ev) is an edge in a complement graph.
 void PaletteColor::buildStreamConfGraph ( NODE_T eu, NODE_T ev) {
 
-  std::vector<NODE_T> v(colList[eu].size());
-  std::vector<NODE_T>::iterator it;
-
-  //it = std::set_intersection(colList[eu].begin(),colList[eu].end(),
-  //  colList[ev].begin(),colList[ev].end(),v.begin());  
-
-  //v.resize(it - v.begin());
   bool hasCommon = findFirstCommonElement(colList[eu],colList[ev]);
   if(hasCommon == true ) {
 
     confAdjList[eu].push_back(ev); 
     confAdjList[ev].push_back(eu); 
     nConflicts++;
-    //if(e.u == 0) std::cout<<e.v<<" ";
-    //confVertices[e.u]++;
-    //confVertices[e.v]++;
   }
 
 }
 
 #ifdef ENABLE_GPU
-void PaletteColor::buildStreamConfGraphGpu () {
+void PaletteColor::buildConfGraphGpu () {
 
   
   std::vector<NODE_T> v(colList[eu].size());
@@ -83,19 +76,43 @@ void PaletteColor::buildStreamConfGraphGpu () {
 }
 #endif // ENABLE_GPU
 
+//This function computes the graph directly, rather in streaming way. It takes
+//a JsonGraph object since it requires to determine whether the pair (eu,ev) is 
+//an edge in the complement graph.
+void PaletteColor::buildConfGraph ( ClqPart::JsonGraph &jsongraph) {
 
+  
+  for(NODE_T eu =0; eu < n-1; eu++) {
+    for(NODE_T ev = eu+1; ev < n; ev++) {
+
+      if(jsongraph.is_an_edge(eu,ev) == false) {
+        bool hasCommon = findFirstCommonElement(colList[eu],colList[ev]);
+        if(hasCommon == true ) {
+
+          confAdjList[eu].push_back(ev); 
+          confAdjList[ev].push_back(eu); 
+          nConflicts++;
+        }
+      }
+    }
+  }
+
+}
+
+//This function assign random list of colors from the Palette.
 void PaletteColor::assignListColor() {
 
-  double t1 = omp_get_wtime();
   std::mt19937 engine(2034587);
   std::uniform_int_distribution<NODE_T> uniform_dist(0, colThreshold-1);
   
-  //NODE_T T =  3*static_cast<NODE_T> (log(n));
-  //NODE_T T = 8;
-
-  std::cout<<"Assigning random color " << colThreshold<<" "<<T<<std::endl;
-  
+  //We want the colors to be not repeating. Thus initially the list size is
+  //same for each vertex
   std::vector<bool> isPresent(colThreshold);
+
+  std::cout<<"Assigning random list color " << "Palette Size: "<<colThreshold
+            <<" "<<"List size: "<<T<<std::endl;
+  
+  double t1 = omp_get_wtime();
   for (NODE_T i= 0; i<n ; i++) {
     std::fill(isPresent.begin(),isPresent.end(),false);
     for (NODE_T j=0; j<T ; j++) {
@@ -106,9 +123,7 @@ void PaletteColor::assignListColor() {
 
       colList[i].push_back(col); 
       isPresent[col] = true;
-      //if ( i== 0 || i == 6660) std::cout<<colList[i][j]<<" ";
     } 
-    //if ( i== 0 || i == 6660) std::cout<<std::endl;
     std::stable_sort(colList[i].begin(),colList[i].end());
 
     #ifdef ENABLE_GPU
@@ -125,9 +140,14 @@ void PaletteColor::assignListColor() {
     #endif // ENABLE_GPU
   }
   assignTime = omp_get_wtime() - t1;
-  std::cout<<"Assignment of Color Time: "<<assignTime<<std::endl;
+  std::cout<<"Assignment Time: "<<assignTime<<std::endl;
 
 }
+
+//This function sort the vertices of the conflict graph w.r.t to their degrees.
+//The idea is to color the vertex with highest degree first, since this represents
+//the most conflicted with other vertices. Does not perform that well in practice.
+//We are not using it at the moment.
 void PaletteColor::orderConfVertices() {
    
   std::vector<NODE_T > degreeConf(n,0);
@@ -143,6 +163,10 @@ void PaletteColor::orderConfVertices() {
 
 }
 
+/********************************************************************************
+//The next three functions are not necessary at this moment. They are used to color
+//the invalid vertices. But since we do not know the subgraph induced by the invalid
+//vertices coloring them only with conflict graph is wrong.  
 void PaletteColor::populateCandColors( NODE_T u, std::vector<NODE_T> &candColors) {
   for(auto v:confAdjList[u] ) {
     if (confColors[v] !=  -1) {
@@ -170,29 +194,11 @@ void PaletteColor::greedyColor(NODE_T offset) {
     colors[u] = confColors[u]+offset;
   }
 }
+********************************************************************************/
 
+//The function given a vtx, properly color the vertx using a random color from the list.
+//the coloring is guaranteed but I first name it attempt. kept in this way.
 NODE_T PaletteColor::attemptToColor(NODE_T vtx) {
-
-  /*bool flag = false;
-  for(auto colInd = 0;colInd<colList[vtx].size();colInd++) {
-    flag = true;
-    auto col = colList[vtx].at(colInd);
-    std::cout<<"attempting to color with: "<<col<<std::endl;
-    for(auto v:confAdjList[vtx]) {
-      if (colors[v] == col) {
-        flag = false;
-        break; 
-      }
-    }     
-    if(flag == true) {
-      std::cout<<"succeded to color"<<std::endl;
-      colors[vtx] = col;
-      return colInd; 
-    }
-  }
-  
-  return -1;
-  */
 
   std::mt19937 engine(213857);
   std::uniform_int_distribution<NODE_T> uniform_dist(0,colList[vtx].size()-1);
@@ -204,6 +210,8 @@ NODE_T PaletteColor::attemptToColor(NODE_T vtx) {
   return colInd;
 }
 
+//This function attempt to color the conflicting graph with largest degree heuristics.
+//Does not perform well
 void PaletteColor::confColor() {
   
   std::cout<<"conflicting edges: "<<nConflicts<<std::endl; 
@@ -231,13 +239,16 @@ void PaletteColor::confColor() {
       colors[i] = colList[i][0];
     //std::cout<<i<<" "<<colors[i]<<std::endl;
   }
-  NODE_T maxCol = *std::max_element(colors.begin(),colors.end()) + 1;
   std::cout<<"# of vertices can not be colored: "<<invalidVertices.size()
     <<std::endl;
-  greedyColor(maxCol);
   nColors = *std::max_element(colors.begin(),colors.end()) + 1;
 }
 
+
+
+//The next two functions fixBuckets and ConfColorGreedy are needed for coloring
+//the conflict graph. This heuristic color the vertices with the smallest list size
+//first, since they have less options. Works well in practice. 
 void PaletteColor::fixBuckets(NODE_T vtx, NODE_T col, NODE_T &vtxProcessed, 
     std::vector< std::vector<NODE_T> > &verBucket, std::vector<NODE_T> &verLoc, NODE_T &vMin) {
   for( auto v:confAdjList[vtx] ) {
@@ -278,7 +289,7 @@ void PaletteColor::fixBuckets(NODE_T vtx, NODE_T col, NODE_T &vtxProcessed,
 void PaletteColor::confColorGreedy() {
   
   double t1 = omp_get_wtime();
-  std::cout<<"conflicting edges: "<<nConflicts<<std::endl; 
+  std::cout<<"# of conflicting edges: "<<nConflicts<<std::endl; 
   //Buckets of size T;
   std::vector<std::vector<NODE_T> > verBucket(T+1);
   //to stoe the position of vertex in the corresponding bucket
@@ -312,7 +323,6 @@ void PaletteColor::confColorGreedy() {
       vMin = t; 
     }
   }
-  std::cout<<"The minimum bucket size is: "<<vMin<<std::endl;
  
   //keep processing until we see all the vertices. 
   while (vtxProcessed < n) {
@@ -354,20 +364,56 @@ void PaletteColor::confColorGreedy() {
       } 
     }
   }
-  std::cout<<"# of vertices can not be colored: "<<invalidVertices.size()
+  std::cout<<"# of invalid vertices: "<<invalidVertices.size()
     <<std::endl;
 
-  
+ /* 
   NODE_T invalid = 0;
   for(NODE_T i=0;i<n;i++) {
     if(colors[i] == -2)
      invalid++; 
   }
   std::cout<<invalid<<std::endl;
+  */
+
   confColorTime = omp_get_wtime() - t1;
   
   std::cout<<"Conflict Coloring Time: "<<confColorTime<<std::endl;
 
+  nColors = *std::max_element(colors.begin(),colors.end()) + 1;
+
+}
+
+
+void PaletteColor::naiveGreedyColor(std::vector<NODE_T> vertList, ClqPart::JsonGraph &jsongraph, NODE_T offset) {
+
+  if(vertList.empty() == false) {
+
+    std::vector<NODE_T> forbiddenCol(n,-1);
+    colors[vertList[0]] = offset; 
+
+    for(auto i=1; i<vertList.size();i++) {
+      NODE_T eu = vertList[i]; 
+      for(auto j=0; j<i; j++) {
+        NODE_T ev = vertList[j]; 
+
+        if(jsongraph.is_an_edge(eu,ev) == false) { 
+          if (colors[ev] >= 0) {
+            forbiddenCol[colors[ev]] = eu;
+          }
+        } 
+      }
+    
+      //color eu with first available color
+      for( auto ii=offset;ii<n;ii++) {
+        if(forbiddenCol[ii] == -1) {
+          colors[eu] = ii; 
+          break;
+        } 
+      }
+    }
+    nColors = *std::max_element(colors.begin(),colors.end()) + 1;
+  }
 }
 
 

@@ -21,6 +21,7 @@
 // #define ENABLE_GPU
 
 #include "ClqPart/graph.h" 
+#include "ClqPart/JsonGraph.h"
 #include <random>
 
 #include <omp.h>
@@ -72,15 +73,18 @@ public:
   }
   void buildStreamConfGraph( NODE_T u, NODE_T v ); 
   #ifdef ENABLE_GPU
-  void buildStreamConfGraphGpu();
+  void buildConfGraphGpu();
   #endif
+  void buildConfGraph( ClqPart::JsonGraph &);
   void confColor();
   void confColorGreedy();
+  void naiveGreedyColor(std::vector<NODE_T> vertList, ClqPart::JsonGraph &jsongraph,NODE_T offset);
   void confColorRand();
   void orderConfVertices();
 
   std::vector< std::vector<NODE_T> >& getConfAdjList() { return confAdjList; }
   std::vector<NODE_T>& getConfVertices() { return confVertices; }
+  std::vector<NODE_T>& getInvVertices() { return invalidVertices; }
   std::vector<NODE_T> getColors() { return colors; }
   NODE_T getNumColors() {return nColors;}
 
