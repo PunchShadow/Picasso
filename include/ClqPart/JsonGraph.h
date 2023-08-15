@@ -52,6 +52,7 @@ namespace ClqPart {
     json data;
     json dataAr;
     std::vector<std::vector<uint32_t>> dataEnc;
+    size_t pauliEncSize;
     //json::iterator it,it1,beginIt;
     NODE_T u,v;
     EDGE_T numEdgeCom;
@@ -194,6 +195,7 @@ namespace ClqPart {
       double getWriteTime() {return writeTime;}
       NODE_T numOfData() { return numDataPoints;}
       NODE_T getNumEdge() {return numEdgeCom;}
+      std::vector<std::vector<uint32_t>>& getEncodedData() {return dataEnc;}
       void printData();
 
     protected:

@@ -41,6 +41,10 @@ add_executable(palcolE appPalColEnc.cc)
 target_include_directories(palcolE PUBLIC "${PROJECT_SOURCE_DIR}/include") 
 target_link_libraries(palcolE PUBLIC ClqPart)
 
+add_executable(palcolG appPalColGpu.cc)
+target_include_directories(palcolG PUBLIC "${PROJECT_SOURCE_DIR}/include")
+target_link_libraries(palcolG PUBLIC ClqPart)
+
 add_executable(naiveCol appNaiveColDir.cc)
 target_include_directories(naiveCol PUBLIC "${PROJECT_SOURCE_DIR}/include") 
 target_link_libraries(naiveCol PUBLIC ClqPart)

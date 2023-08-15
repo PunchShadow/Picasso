@@ -18,10 +18,16 @@
 
 #pragma once
 
-// #define ENABLE_GPU
+#define ENABLE_GPU
+
+#ifdef ENABLE_GPU
+// #include <cuda.h>
+#include <cuda_runtime.h>
+#endif
 
 #include "ClqPart/graph.h" 
 #include "ClqPart/JsonGraph.h"
+#include "ClqPart/cuPaletteCol.cuh"
 #include <random>
 
 #include <omp.h>
@@ -37,9 +43,17 @@ class PaletteColor {
   NODE_T nConflicts;
 
   #ifdef ENABLE_GPU
+  std::vector<NODE_T> h_colList;
   NODE_T *d_colList;
   NODE_T *d_colors;
   NODE_T *d_confColors;
+  std::vector<uint32_t> h_pauliEnc;
+  uint32_t *d_pauliEnc;
+  size_t pauliEncSize;
+  std::vector<NODE_T> h_confVertices;
+  NODE_T *d_confVertices;
+  std::vector<NODE_T> h_confOffsets;
+  NODE_T *d_confOffsets;
   #endif
   
   std::vector<NODE_T> confVertices;
@@ -73,7 +87,7 @@ public:
   }
   void buildStreamConfGraph( NODE_T u, NODE_T v ); 
   #ifdef ENABLE_GPU
-  void buildConfGraphGpu();
+  void buildConfGraphGpu(ClqPart::JsonGraph &jsongraph);
   #endif
   void buildConfGraph( ClqPart::JsonGraph &);
   void confColor();

@@ -73,7 +73,7 @@ int main(int argC, char *argV[]) {
     }
   }
   else { 
-    palcol.buildConfGraph(jsongraph);
+    palcol.buildConfGraphGpu(jsongraph);
   }
   double createConfTime = omp_get_wtime() - t1;
   std::cout<<"Conflict graph construction time: "<<createConfTime<<std::endl;

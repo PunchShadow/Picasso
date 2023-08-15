@@ -53,26 +53,46 @@ void PaletteColor::buildStreamConfGraph ( NODE_T eu, NODE_T ev) {
 }
 
 #ifdef ENABLE_GPU
-void PaletteColor::buildConfGraphGpu () {
-
-  
-  std::vector<NODE_T> v(colList[eu].size());
-  std::vector<NODE_T>::iterator it;
-
-  //it = std::set_intersection(colList[eu].begin(),colList[eu].end(),
-  //  colList[ev].begin(),colList[ev].end(),v.begin());  
-
-  //v.resize(it - v.begin());
-  bool hasCommon = findFirstCommonElement(colList[eu],colList[ev]);
-  if(hasCommon == true ) {
-
-    confAdjList[eu].push_back(ev); 
-    confAdjList[ev].push_back(eu); 
-    nConflicts++;
-    //if(e.u == 0) std::cout<<e.v<<" ";
-    //confVertices[e.u]++;
-    //confVertices[e.v]++;
+void PaletteColor::buildConfGraphGpu (ClqPart::JsonGraph &jsongraph) {
+  std::vector<std::vector<uint32_t>> &pauliEnc = jsongraph.getEncodedData();
+  pauliEncSize = pauliEnc[0].size();
+  h_pauliEnc.resize(pauliEnc.size() * pauliEncSize);
+  // Convert pauliEnc to 1d array and copy to GPU
+  for (NODE_T i = 0; i < pauliEnc.size(); i++) {
+    for (NODE_T j = 0; j < pauliEncSize; j++) {
+      h_pauliEnc[i * pauliEncSize + j] = pauliEnc[i][j];
+    }
   }
+  cudaMalloc(&d_pauliEnc, h_pauliEnc.size() * sizeof(NODE_T));
+  cudaMemcpy(d_pauliEnc, h_pauliEnc.data(), h_pauliEnc.size() * sizeof(NODE_T), cudaMemcpyHostToDevice);
+
+  h_confOffsets.resize(n);
+  cudaMalloc(&d_confOffsets, h_confOffsets.size() * sizeof(NODE_T));
+  h_confVertices.resize(n * n);
+  cudaMalloc(&d_confVertices, h_confVertices.size() * sizeof(NODE_T));
+
+  cudaDeviceSynchronize();
+
+  // Create d_nConflicts and initialize to 0
+  NODE_T *d_nConflicts;
+  cudaMalloc(&d_nConflicts, sizeof(NODE_T));
+  cudaMemset(d_nConflicts, 0, sizeof(NODE_T));
+
+  // Call function to send to GPU to build conf graph
+  buildConfGraphDevice(d_pauliEnc, pauliEncSize, d_colList, n, T, d_confOffsets, d_confVertices, d_nConflicts);
+  cudaDeviceSynchronize();
+  // Read d_nConflicts from GPU
+  cudaMemcpy(&nConflicts, d_nConflicts, sizeof(NODE_T), cudaMemcpyDeviceToHost);
+  // Print nConflicts
+  nConflicts /= 2;
+  std::cout << "nConflicts: " << nConflicts << std::endl;
+  // Exit program
+  exit(0);
+  // Copy h_confOffsets and h_confVertices from GPU
+  cudaMemcpy(h_confOffsets.data(), d_confOffsets, h_confOffsets.size() * sizeof(NODE_T), cudaMemcpyDeviceToHost);
+  cudaMemcpy(h_confVertices.data(), d_confVertices, h_confVertices.size() * sizeof(NODE_T), cudaMemcpyDeviceToHost);
+
+  cudaDeviceSynchronize();
 }
 #endif // ENABLE_GPU
 
@@ -125,20 +145,24 @@ void PaletteColor::assignListColor() {
       isPresent[col] = true;
     } 
     std::stable_sort(colList[i].begin(),colList[i].end());
-
-    #ifdef ENABLE_GPU
-    // Convert colList to 1d array and copy to GPU
-    std::vector<NODE_T> colList1d(colList.size() * T);
-    for (NODE_T i = 0; i < colList.size(); i++) {
-      for (NODE_T j = 0; j < T; j++) {
-        colList1d[i * T + j] = colList[i][j];
-      }
-    }
-    // Copy colList1d to GPU
-    cudaMalloc(&d_colList, colList1d.size() * sizeof(NODE_T));
-    cudaMemcpy(d_colList, colList1d.data(), colList1d.size() * sizeof(NODE_T), cudaMemcpyHostToDevice);
-    #endif // ENABLE_GPU
   }
+  #ifdef ENABLE_GPU
+  std::cout << "Sending to GPU" << std::endl;
+  // Convert colList to 1d array and copy to GPU
+  h_colList.resize(colList.size() * T);
+  for (NODE_T i = 0; i < colList.size(); i++) {
+    for (NODE_T j = 0; j < T; j++) {
+      h_colList[i * T + j] = colList[i][j];
+    }
+  }
+  // Copy h_colList to GPU
+  cudaError_t err;
+  err = cudaMalloc(&d_colList, h_colList.size() * sizeof(NODE_T));
+  err = cudaMemcpy(d_colList, h_colList.data(), h_colList.size() * sizeof(NODE_T), cudaMemcpyHostToDevice);
+  if (err != cudaSuccess) {
+    std::cout << "Error: " << cudaGetErrorString(err) << std::endl;
+  }
+  #endif // ENABLE_GPU
   assignTime = omp_get_wtime() - t1;
   std::cout<<"Assignment Time: "<<assignTime<<std::endl;
 
