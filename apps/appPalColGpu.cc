@@ -85,7 +85,7 @@ int main(int argC, char *argV[]) {
   
   std::vector <NODE_T>  invVert = palcol.getInvVertices();
   if(invVert.empty() == false) {
-    palcol.naiveGreedyColor(invVert, jsongraph, palcol.getNumColors());
+    palcol.naiveGreedyColor<std::vector<uint32_t>>(invVert, jsongraph, palcol.getNumColors());
     std::cout<<"# of Final colors: " <<palcol.getNumColors()<<std::endl;
   }
   return 0;

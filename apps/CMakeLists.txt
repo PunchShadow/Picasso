@@ -43,7 +43,8 @@ target_link_libraries(palcolE PUBLIC ClqPart)
 
 add_executable(palcolG appPalColGpu.cc)
 target_include_directories(palcolG PUBLIC "${PROJECT_SOURCE_DIR}/include")
-target_link_libraries(palcolG PUBLIC ClqPart)
+target_link_libraries(palcolG PUBLIC ClqPartGpu)
+target_compile_definitions(palcolG PUBLIC ENABLE_GPU)
 
 add_executable(naiveCol appNaiveColDir.cc)
 target_include_directories(naiveCol PUBLIC "${PROJECT_SOURCE_DIR}/include") 

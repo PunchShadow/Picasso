@@ -18,7 +18,7 @@
 
 #pragma once
 
-#define ENABLE_GPU
+// #define ENABLE_GPU
 
 #ifdef ENABLE_GPU
 // #include <cuda.h>
@@ -31,6 +31,8 @@
 #include <random>
 
 #include <omp.h>
+
+bool findFirstCommonElement(const std::vector<NODE_T>& vec1, const std::vector<NODE_T>& vec2);
 
 class PaletteColor {
   
@@ -85,14 +87,71 @@ public:
     invalidVertices.clear();
     assignListColor();
   }
+
+  template<typename PauliTy = std::string>
+  void naiveGreedyColor(std::vector<NODE_T> vertList, ClqPart::JsonGraph &jsongraph, NODE_T offset) {
+
+    if(vertList.empty() == false) {
+
+      std::vector<NODE_T> forbiddenCol(n,-1);
+      colors[vertList[0]] = offset; 
+
+      for(auto i=1; i<vertList.size();i++) {
+        NODE_T eu = vertList[i]; 
+        for(auto j=0; j<i; j++) {
+          NODE_T ev = vertList[j]; 
+
+          if(jsongraph.is_an_edge<PauliTy>(eu,ev) == false) { 
+            if (colors[ev] >= 0) {
+              forbiddenCol[colors[ev]] = eu;
+            }
+          } 
+        }
+      
+        //color eu with first available color
+        for( auto ii=offset;ii<n;ii++) {
+          if(forbiddenCol[ii] == -1) {
+            colors[eu] = ii; 
+            break;
+          } 
+        }
+      }
+      nColors = *std::max_element(colors.begin(),colors.end()) + 1;
+    }
+  }
+
+  //This function computes the graph directly, rather in streaming way. It takes
+//a JsonGraph object since it requires to determine whether the pair (eu,ev) is 
+//an edge in the complement graph.
+template<typename PauliTy = std::string>
+void buildConfGraph ( ClqPart::JsonGraph &jsongraph) {
+
+  
+  for(NODE_T eu =0; eu < n-1; eu++) {
+    for(NODE_T ev = eu+1; ev < n; ev++) {
+
+      if(jsongraph.is_an_edge<PauliTy>(eu,ev) == false) {
+        bool hasCommon = findFirstCommonElement(colList[eu],colList[ev]);
+        if(hasCommon == true ) {
+
+          confAdjList[eu].push_back(ev); 
+          confAdjList[ev].push_back(eu); 
+          nConflicts++;
+        }
+      }
+    }
+  }
+
+}
+
   void buildStreamConfGraph( NODE_T u, NODE_T v ); 
   #ifdef ENABLE_GPU
   void buildConfGraphGpu(ClqPart::JsonGraph &jsongraph);
   #endif
-  void buildConfGraph( ClqPart::JsonGraph &);
+  // void buildConfGraph( ClqPart::JsonGraph &);
   void confColor();
   void confColorGreedy();
-  void naiveGreedyColor(std::vector<NODE_T> vertList, ClqPart::JsonGraph &jsongraph,NODE_T offset);
+  // void naiveGreedyColor(std::vector<NODE_T> vertList, ClqPart::JsonGraph &jsongraph,NODE_T offset);
   void confColorRand();
   void orderConfVertices();
 
