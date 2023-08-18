@@ -54,15 +54,8 @@ void PaletteColor::buildStreamConfGraph ( NODE_T eu, NODE_T ev) {
 
 #ifdef ENABLE_GPU
 void PaletteColor::buildConfGraphGpu (ClqPart::JsonGraph &jsongraph) {
-  std::vector<std::vector<uint32_t>> &pauliEnc = jsongraph.getEncodedData();
-  pauliEncSize = pauliEnc[0].size();
-  h_pauliEnc.resize(pauliEnc.size() * pauliEncSize);
-  // Convert pauliEnc to 1d array and copy to GPU
-  for (NODE_T i = 0; i < pauliEnc.size(); i++) {
-    for (NODE_T j = 0; j < pauliEncSize; j++) {
-      h_pauliEnc[i * pauliEncSize + j] = pauliEnc[i][j];
-    }
-  }
+  pauliEncSize = jsongraph.getPauliEncSize();
+  std::vector<uint32_t> &h_pauliEnc = jsongraph.getEncodedData();
   cudaMalloc(&d_pauliEnc, h_pauliEnc.size() * sizeof(NODE_T));
   cudaMemcpy(d_pauliEnc, h_pauliEnc.data(), h_pauliEnc.size() * sizeof(NODE_T), cudaMemcpyHostToDevice);
 
@@ -116,6 +109,9 @@ void PaletteColor::assignListColor() {
             <<" "<<"List size: "<<T<<std::endl;
   
   double t1 = omp_get_wtime();
+  #ifdef ENABLE_GPU
+  h_colList.reserve(n * T);
+  #endif // ENABLE_GPU
   for (NODE_T i= 0; i<n ; i++) {
     std::fill(isPresent.begin(),isPresent.end(),false);
     for (NODE_T j=0; j<T ; j++) {
@@ -127,17 +123,12 @@ void PaletteColor::assignListColor() {
       colList[i].push_back(col); 
       isPresent[col] = true;
     } 
-    std::stable_sort(colList[i].begin(),colList[i].end());
+    std::sort(colList[i].begin(),colList[i].end());
+    #ifdef ENABLE_GPU
+    h_colList.insert(h_colList.end(), colList[i].begin(), colList[i].end());
+    #endif
   }
   #ifdef ENABLE_GPU
-  std::cout << "Sending to GPU" << std::endl;
-  // Convert colList to 1d array and copy to GPU
-  h_colList.resize(colList.size() * T);
-  for (NODE_T i = 0; i < colList.size(); i++) {
-    for (NODE_T j = 0; j < T; j++) {
-      h_colList[i * T + j] = colList[i][j];
-    }
-  }
   // Copy h_colList to GPU
   cudaError_t err;
   err = cudaMalloc(&d_colList, h_colList.size() * sizeof(NODE_T));

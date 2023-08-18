@@ -136,6 +136,24 @@ namespace ClqPart {
       return false;
     }
   }
+  #ifdef ENABLE_GPU
+  bool JsonGraph::is_an_edge(NODE_T P, NODE_T Q) {
+    // transform_reduce P_list and Q_list by bitwise-and and popcount
+    uint32_t cnt = 0;
+    const int P_offset = P * pauliEncSize;
+    const int Q_offset = Q * pauliEncSize;
+    for(int i = 0; i < pauliEncSize; i++) {
+      cnt += __builtin_popcount(dataEnc[P_offset + i] & dataEnc[Q_offset + i]);
+    }
+    if (cnt & 0x1) {
+      return true;
+    }
+    else {
+      numEdgeCom++;
+      return false;
+    }
+  }
+  #endif
 
   // bool JsonGraph::is_an_edge_alternative(std::vector<uint32_t> P, std::vector<uint32_t> Q, int num_terms) {
   //   int cnt = 0;

@@ -51,7 +51,11 @@ namespace ClqPart {
     double writeTime;
     json data;
     json dataAr;
+    #ifdef ENABLE_GPU
+    std::vector<uint32_t> dataEnc;
+    #else
     std::vector<std::vector<uint32_t>> dataEnc;
+    #endif
     size_t pauliEncSize;
     //json::iterator it,it1,beginIt;
     NODE_T u,v;
@@ -70,54 +74,64 @@ namespace ClqPart {
         data = json::parse(f);  
         f.close();
 
-        constexpr uint32_t num_encoded_bits = sizeof(uint32_t) * 4;
-
-        // size_t num_terms = data.begin().key().size();
-        // size_t num_packed_ints = num_terms / 3;
-
-        // dataEnc = std::vector<std::vector<uint32_t>>(data.size(), std::vector<uint32_t>(num_packed_ints));
         if(encode){
+          constexpr uint32_t num_encoded_bits = sizeof(uint32_t) * 4;
+          constexpr size_t terms_per_int = num_encoded_bits / 3;
+
+          #ifdef ENABLE_GPU
+          size_t pauli_length = data.begin().key().size();
+          size_t num_strings = data.size();
+          pauliEncSize = (pauli_length + terms_per_int - 1) / terms_per_int;
+          dataEnc.reserve(pauli_length*pauliEncSize);
+          #endif
           std::cout << "Encoding" << std::endl;
           for (auto& el : data.items()){
             // json pair = json::array();
-            std::vector<uint32_t> term_encoding;
+            #ifndef ENABLE_GPU
+            std::vector<uint32_t> matrix_encoding;
+            #endif
             uint32_t cnt = 0;
             uint32_t encoded_int = 0;
-            for (auto& term : el.key()) {
+            for (auto& matrix : el.key()) {
               if(cnt == num_encoded_bits/3){
-                term_encoding.push_back(encoded_int);
+                #ifdef ENABLE_GPU
+                dataEnc.push_back(encoded_int);
+                #else
+                matrix_encoding.push_back(encoded_int);
+                #endif
                 cnt = 0;
                 encoded_int = 0;
               }
               uint32_t mask = 0;
               // I = 000 bits, X = 110 bits, Y = 101 bits, Z = 011 bits
-              if (term == 'I') {
+              if (matrix == 'I') {
                 mask = 0b000;
               }
-              else if (term == 'X') {
+              else if (matrix == 'X') {
                 mask = 0b110;
               }
-              else if (term == 'Y') {
+              else if (matrix == 'Y') {
                 mask = 0b101;
               }
-              else if (term == 'Z') {
+              else if (matrix == 'Z') {
                 mask = 0b011;
               }
               else {
-                std::cout << "Invalid term: " << term << std::endl;
+                std::cout << "Invalid matrix: " << matrix << std::endl;
                 exit(1);
               }
               encoded_int = encoded_int << 3;
               encoded_int = encoded_int | mask;
               cnt++;
             }
-            term_encoding.push_back(encoded_int);
-            // pair.push_back(term_encoding);
-            // pair.push_back(el.value());
-            // dataAr.push_back(pair);
-            dataEnc.push_back(term_encoding);
+            #ifdef ENABLE_GPU
+            dataEnc.push_back(encoded_int);
+            #else
+            matrix_encoding.push_back(encoded_int);
+            dataEnc.push_back(matrix_encoding);
+            #endif
           }
-          numDataPoints = dataEnc.size();
+          numDataPoints = data.size();
           std::cout << "Done encoding!" << std::endl;
         }
         else{
@@ -153,9 +167,13 @@ namespace ClqPart {
           return is_an_edge(P,Q);
         }
         else{
+          #ifdef ENABLE_GPU
+          return is_an_edge(u,v);
+          #else
           const std::vector<uint32_t> &P = dataEnc[u];
           const std::vector<uint32_t> &Q = dataEnc[v];
           return is_an_edge(P,Q);
+          #endif
         }
       }
 
@@ -188,6 +206,9 @@ namespace ClqPart {
       void nextIndices();
       bool is_an_edge(std::string, std::string);
       bool is_an_edge(const std::vector<uint32_t>&, const std::vector<uint32_t>&);
+      #ifdef ENABLE_GPU
+      bool is_an_edge(NODE_T P, NODE_T Q);
+      #endif
       void ReadJsonAdjacencyGraph(); 
       void ReadConstructWriteGraph(std::string fileName); 
       void writeGraphMtx(std::string fileName);
@@ -195,7 +216,8 @@ namespace ClqPart {
       double getWriteTime() {return writeTime;}
       NODE_T numOfData() { return numDataPoints;}
       NODE_T getNumEdge() {return numEdgeCom;}
-      std::vector<std::vector<uint32_t>>& getEncodedData() {return dataEnc;}
+      decltype(dataEnc)& getEncodedData() {return dataEnc;}
+      size_t getPauliEncSize() {return pauliEncSize;}
       void printData();
 
     protected:
