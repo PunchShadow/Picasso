@@ -34,12 +34,9 @@ int main(int argC, char *argV[]) {
     ("in,infile", "input mtx file name", cxxopts::value<std::string>())
     ("t,target", "target color", cxxopts::value<NODE_T>())
     ("a,alpha", "coefficient to log(n)", cxxopts::value<float>()->default_value("1.0"))
-//("out,outfile", "output color file name", cxxopts::value<std::string>()->default_value(""))
-    //("o,order", "LARGEST_FIRST,SMALLEST_LAST,NATURAL,RANDOM,DYNAMIC_LARGEST_FIRST,INCIDENCE_DEGREE",cxxopts::value<std::string>()->default_value("LARGEST_FIRST"))
     ("h,help", "print usage")
     ;
 
-  //std::string inFname, outFname,order;
   std::string inFname;
   NODE_T target;
   float alpha;
@@ -52,8 +49,6 @@ int main(int argC, char *argV[]) {
     inFname = result["infile"].as<std::string>();
     target = result["target"].as<NODE_T>();
     alpha = result["alpha"].as<float>();
-    //outFname = result["outfile"].as<std::string>();
-    //order = result["order"].as<std::string>(); 
   }
   catch(cxxopts::exceptions::exception &exp) {
     std::cout<<options.help()<<std::endl;
@@ -72,7 +67,7 @@ int main(int argC, char *argV[]) {
   PaletteColor palcol(n,target,alpha);
 
   
-  
+  double t1 = omp_get_wtime();
   for(NODE_T i =0 ;i <n;i++) {
     for(EDGE_T j=G.IA[i]; j < G.IA[i+1] ; j++) {
       if(i < G.JA[j]) {
@@ -80,21 +75,14 @@ int main(int argC, char *argV[]) {
       } 
     } 
   }  
+  double createConfTime = omp_get_wtime() - t1;
+  std::cout<<"Conflict graph construction time: "<<createConfTime<<std::endl;
 
   std::vector< std::vector<NODE_T> > confEdges = palcol.getConfAdjList();
   palcol.confColorGreedy();
   std::vector<NODE_T> colors = palcol.getColors();
-  /*
-  std::vector<NODE_T> colHist(n/7,0);
-  for(auto u:colors) {
-    if(u>=0) colHist[u]++; 
-  }
-  for( auto c:colHist) {
-    std::cout<<c<<std::endl;
-    if(c==0)
-     unassigned++; 
-  }
-  */
-  std::cout<<palcol.getNumColors()<<" "<<isValidColoring(G,colors)<<std::endl;
+
+  std::cout<<"# of colors: " <<palcol.getNumColors()<<std::endl;
+  std::cout<<"valid coloring?: "<<isValidColoring(G,colors)<<std::endl;
   return 0;
 }  

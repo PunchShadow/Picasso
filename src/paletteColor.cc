@@ -75,6 +75,26 @@ void PaletteColor::buildConfGraph ( ClqPart::JsonGraph &jsongraph) {
 
 }
 
+//Build the conflict graph using openmp
+/*void PaletteColor::buildConfGraphPar ( ClqPart::JsonGraph &jsongraph) {
+
+  
+  for(NODE_T eu =0; eu < n-1; eu++) {
+    for(NODE_T ev = eu+1; ev < n; ev++) {
+
+      if(jsongraph.is_an_edge(eu,ev) == false) {
+        bool hasCommon = findFirstCommonElement(colList[eu],colList[ev]);
+        if(hasCommon == true ) {
+
+          confAdjList[eu].push_back(ev); 
+          confAdjList[ev].push_back(eu); 
+          nConflicts++;
+        }
+      }
+    }
+  }
+
+}*/
 //This function assign random list of colors from the Palette.
 void PaletteColor::assignListColor() {
 
