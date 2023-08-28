@@ -19,8 +19,8 @@ include_directories("${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
 include(CTest)
 enable_testing()
 
-#To help detect the include directories for ALE plugin of Vim
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+# set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
 
 #
 # Prevent building in the source directory

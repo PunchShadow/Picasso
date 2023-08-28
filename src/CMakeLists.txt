@@ -33,9 +33,8 @@ add_library(ClqPartGpu
   ${HEADER_LIST}
   )
 
-set_target_properties(ClqPart PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
-set_target_properties(ClqPartGpu PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
-
+# set_target_properties(ClqPart PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+# set_target_properties(ClqPartGpu PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 find_package(OpenMP)
 
 if(OpenMP_CXX_FOUND)
@@ -49,9 +48,7 @@ target_include_directories(ClqPart PUBLIC
 target_include_directories(ClqPartGpu PUBLIC
   "${PROJECT_SOURCE_DIR}/include"
   )
-target_link_libraries(ClqPart PUBLIC ${CUDA_LIBRARIES})
 target_link_libraries(ClqPartGpu PUBLIC ${CUDA_LIBRARIES})
-target_include_directories(ClqPart PUBLIC ${CUDA_INCLUDE_DIRS})
 target_include_directories(ClqPartGpu PUBLIC ${CUDA_INCLUDE_DIRS})
 
 #target_link_libraries(ClqPart PUBLIC ${ColPack_LIBS})
@@ -59,8 +56,8 @@ target_include_directories(ClqPartGpu PUBLIC ${CUDA_INCLUDE_DIRS})
 #target_include_directories(ClqPart PUBLIC ${ColPack_INCDIR})
 
 # All users of this library will need at least C++11
-target_compile_features(ClqPart PUBLIC cxx_std_11)
-target_compile_features(ClqPartGpu PUBLIC cxx_std_11)
+target_compile_features(ClqPart PUBLIC cxx_std_17)
+target_compile_features(ClqPartGpu PUBLIC cxx_std_17)
 #target_compile_options(ra PRIVATE -O2 -fopenmp)
 target_compile_options(ClqPart PRIVATE -O3)
 target_compile_options(ClqPartGpu PRIVATE -O3)
