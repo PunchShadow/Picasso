@@ -156,6 +156,7 @@ __global__ void build_coo_conflict_graph_kernel(
     for(OffsetTy edge_id = blockIdx.x * blockDim.x + threadIdx.x; edge_id < num_edges; edge_id += blockDim.x * gridDim.x){
         NODE_T row = edge_id / (OffsetTy)n_vertices;
         NODE_T col = edge_id - ((OffsetTy)row * (OffsetTy)n_vertices);
+        // Equivalent to edge_id % n_vertices
         if(row > col){
             const uint32_t *pauli1 = &d_pauliEnc[row * pauliEncSize];
             const uint32_t *pauli2 = &d_pauliEnc[col * pauliEncSize];
