@@ -34,11 +34,12 @@ int main(int argC, char *argV[]) {
     ("in,infile", "input mtx file name", cxxopts::value<std::string>())
     ("t,target", "target color", cxxopts::value<NODE_T>())
     ("a,alpha", "coefficient to log(n)", cxxopts::value<float>()->default_value("1.0"))
+    ("l,list", "list size ", cxxopts::value<NODE_T>()->default_value("-1"))
     ("h,help", "print usage")
     ;
 
   std::string inFname;
-  NODE_T target;
+  NODE_T target,list_size;
   float alpha;
   try{
     auto result = options.parse(argC,argV);
@@ -49,6 +50,7 @@ int main(int argC, char *argV[]) {
     inFname = result["infile"].as<std::string>();
     target = result["target"].as<NODE_T>();
     alpha = result["alpha"].as<float>();
+    list_size = result["list"].as<NODE_T>();
   }
   catch(cxxopts::exceptions::exception &exp) {
     std::cout<<options.help()<<std::endl;
@@ -64,7 +66,9 @@ int main(int argC, char *argV[]) {
   
   std::pair<NODE_T, NODE_T> maxD = getMaxDegreeNode(G);
   std::cout<<"Maximum Degree: "<<maxD.second<<std::endl;
-  PaletteColor palcol(n,target,alpha);
+  if(list_size >=0)
+    std::cout<<"Since list size is given, ignoring alpha"<<std::endl;
+  PaletteColor palcol(n,target,alpha,list_size);
 
   
   double t1 = omp_get_wtime();

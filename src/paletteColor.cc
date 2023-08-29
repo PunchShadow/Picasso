@@ -185,8 +185,9 @@ NODE_T PaletteColor::attemptToColor(NODE_T vtx) {
 
   std::mt19937 engine(213857);
   std::uniform_int_distribution<NODE_T> uniform_dist(0,colList[vtx].size()-1);
-
+  //auto min_it = std::min_element(colList[vtx].begin(), colList[vtx].end());
   auto colInd = uniform_dist(engine);
+  //auto colInd = std::distance(colList[vtx].begin(), min_it);
   
   auto col = colList[vtx].at(colInd);
   colors[vtx] = col;

@@ -46,7 +46,7 @@ class PaletteColor {
 
 
 public:
-  PaletteColor( NODE_T n1, NODE_T colThresh, float alpha=1) {
+  PaletteColor( NODE_T n1, NODE_T colThresh, float alpha=1, NODE_T lst_sz = -1) {
     n = n1;
     colThreshold = colThresh; 
     colors.resize(n,-1);
@@ -54,8 +54,14 @@ public:
     vertexOrder.resize(n);
     nColors = 0;
     nConflicts = 0;
-    T =  static_cast<NODE_T> (alpha*log(n));
-    
+    if(lst_sz < 0)
+      T =  static_cast<NODE_T> (alpha*log(n));
+    else
+      T = lst_sz;
+
+    if(T>colThresh)
+      T = colThresh;
+
     confVertices.resize(n,0);
     confAdjList.resize(n);
     colList.resize(n);

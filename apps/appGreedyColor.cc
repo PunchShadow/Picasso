@@ -82,9 +82,9 @@ int main(int argC, char *argV[]) {
   }
   else {  
     std::cout<<greedyCol.getNumColors()<<"\n";
-    for(NODE_T i=0;i<colors.size();i++) { 
+    /*for(NODE_T i=0;i<colors.size();i++) { 
       std::cout<< i <<" "<<colors[i]<<"\n";
-    }
+    }*/
   }
   return 0;
 }  

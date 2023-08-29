@@ -37,11 +37,12 @@ int main(int argC, char *argV[]) {
     ("t,target", "target color", cxxopts::value<NODE_T>())
     ("a,alpha", "coefficient to log(n)", cxxopts::value<float>()->default_value("1.0"))
     ("s,stream", "streaming construction", cxxopts::value<bool>()->default_value("false"))
+    ("l,list", "list size ", cxxopts::value<NODE_T>()->default_value("-1"))
     ("h,help", "print usage")
     ;
 
   std::string inFname;
-  NODE_T target;
+  NODE_T target,list_size;
   float alpha;
   bool isStream;
   try{
@@ -54,6 +55,7 @@ int main(int argC, char *argV[]) {
     target = result["target"].as<NODE_T>();
     alpha = result["alpha"].as<float>();
     isStream = result["stream"].as<bool>();
+    list_size = result["list"].as<NODE_T>();
   }
   catch(cxxopts::exceptions::exception &exp) {
     std::cout<<options.help()<<std::endl;
@@ -62,7 +64,9 @@ int main(int argC, char *argV[]) {
 
   ClqPart::JsonGraph jsongraph(inFname,isStream); 
   NODE_T n = jsongraph.numOfData();
-  PaletteColor palcol(n,target,alpha);
+  if(list_size >=0)
+    std::cout<<"Since list size is given, ignoring alpha"<<std::endl;
+  PaletteColor palcol(n,target,alpha,list_size);
 
   double t1 = omp_get_wtime();
   if(isStream){
