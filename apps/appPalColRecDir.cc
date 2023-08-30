@@ -37,7 +37,7 @@ void printStat( int level, PalColStat &palStat) {
   std::cout<<"Palette Size: "<<palStat.palSz<<"\n";
   std::cout<<"List Size: "<<palStat.lstSz<<"\n";
   std::cout<<"Num Conflict Edges: "<<palStat.mConf<<"\n";
-  std::cout<<"Conflict/Edge: "<<(double)palStat.mConf/palStat.m<<"\n";
+  std::cout<<"Conflict to Edge (%): "<<(double)palStat.mConf/palStat.m*100<<"\n";
   std::cout<<"Num Colors: " <<palStat.nColors<<std::endl;
   std::cout<<"Assign Time: "<<palStat.assignTime<<"\n";
   std::cout<<"Conf. Build Time: "<<palStat.confBuildTime<<"\n";
