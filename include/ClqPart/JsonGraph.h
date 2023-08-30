@@ -99,6 +99,7 @@ namespace ClqPart {
       double getWriteTime() {return writeTime;}
       NODE_T numOfData() { return numDataPoints;}
       NODE_T getNumEdge() {return numEdgeCom;}
+      void resetNumEdge() {numEdgeCom=0;}
       void printData();
 
     protected:

@@ -58,6 +58,7 @@ void PaletteColor::buildStreamConfGraph ( NODE_T eu, NODE_T ev) {
 void PaletteColor::buildConfGraph ( ClqPart::JsonGraph &jsongraph) {
 
   
+  double t1 = omp_get_wtime();
   for(NODE_T eu =0; eu < n-1; eu++) {
     for(NODE_T ev = eu+1; ev < n; ev++) {
 
@@ -72,9 +73,35 @@ void PaletteColor::buildConfGraph ( ClqPart::JsonGraph &jsongraph) {
       }
     }
   }
+  palStat[level].confBuildTime = omp_get_wtime() - t1;
+  palStat[level].mConf = nConflicts;
 
 }
+//Overloaded function to work on the subset of the nodes
+void PaletteColor::buildConfGraph ( ClqPart::JsonGraph &jsongraph, std::vector<NODE_T> &nodeList) {
 
+  double t1 = omp_get_wtime();
+  NODE_T num = nodeList.size(); 
+  for(NODE_T iu =0; iu < num-1; iu++) {
+    for(NODE_T iv = iu+1; iv < num; iv++) {
+      auto eu = nodeList[iu];
+      auto ev = nodeList[iv];
+
+      if(jsongraph.is_an_edge(eu,ev) == false) {
+        bool hasCommon = findFirstCommonElement(colList[eu],colList[ev]);
+        if(hasCommon == true ) {
+
+          confAdjList[eu].push_back(ev); 
+          confAdjList[ev].push_back(eu); 
+          nConflicts++;
+        }
+      }
+    }
+  }
+  palStat[level].confBuildTime = omp_get_wtime() - t1;
+  palStat[level].mConf = nConflicts;
+
+}
 //Build the conflict graph using openmp
 /*void PaletteColor::buildConfGraphPar ( ClqPart::JsonGraph &jsongraph) {
 
@@ -105,8 +132,8 @@ void PaletteColor::assignListColor() {
   //same for each vertex
   std::vector<bool> isPresent(colThreshold);
 
-  std::cout<<"Assigning random list color " << "Palette Size: "<<colThreshold
-            <<" "<<"List size: "<<T<<std::endl;
+  //std::cout<<"Assigning random list color " << "Palette Size: "<<colThreshold
+           // <<" "<<"List size: "<<T<<std::endl;
   
   double t1 = omp_get_wtime();
   for (NODE_T i= 0; i<n ; i++) {
@@ -120,13 +147,48 @@ void PaletteColor::assignListColor() {
       colList[i].push_back(col); 
       isPresent[col] = true;
     } 
-    std::stable_sort(colList[i].begin(),colList[i].end());
+    std::sort(colList[i].begin(),colList[i].end());
   }
-  assignTime = omp_get_wtime() - t1;
-  std::cout<<"Assignment Time: "<<assignTime<<std::endl;
+  palStat[level].assignTime = omp_get_wtime() - t1;
+  //std::cout<<"Assignment Time: "<<assignTime<<std::endl;
 
 }
 
+//overloaded function to work with subset of nodes
+void PaletteColor::assignListColor(std::vector<NODE_T> &nodeList,NODE_T offset) {
+
+  std::mt19937 engine(2034587);
+  std::uniform_int_distribution<NODE_T> uniform_dist(offset, offset+colThreshold-1);
+  
+  //We want the colors to be not repeating. Thus initially the list size is
+  //same for each vertex
+  std::vector<bool> isPresent(colThreshold);
+
+  //std::cout<<"Assigning random list color " << "Palette Size: "<<colThreshold
+   //         <<" "<<"List size: "<<T<<std::endl;
+  
+  double t1 = omp_get_wtime();
+
+  
+  for (NODE_T i:nodeList) {
+    std::fill(isPresent.begin(),isPresent.end(),false);
+    //clear the colList since it may contain color from previous recursive level. 
+    colList[i].clear();
+    for (NODE_T j=0; j<T ; j++) {
+      NODE_T col;
+      do {
+        col = uniform_dist(engine);
+      }while(isPresent[col-offset] == true);
+
+      colList[i].push_back(col); 
+      isPresent[col-offset] = true;
+    } 
+    std::sort(colList[i].begin(),colList[i].end());
+  }
+  palStat[level].assignTime = omp_get_wtime() - t1;
+  //std::cout<<"Assignment Time: "<<assignTime<<std::endl;
+
+}
 //This function sort the vertices of the conflict graph w.r.t to their degrees.
 //The idea is to color the vertex with highest degree first, since this represents
 //the most conflicted with other vertices. Does not perform that well in practice.
@@ -134,13 +196,14 @@ void PaletteColor::assignListColor() {
 void PaletteColor::orderConfVertices() {
    
   std::vector<NODE_T > degreeConf(n,0);
+  vertexOrder.resize(n);
 
   for(NODE_T i=0;i<n;i++) {
     degreeConf[i]= confAdjList[i].size(); 
   }
   std::iota(vertexOrder.begin(),vertexOrder.end(),0);
 
-  std::stable_sort(vertexOrder.begin(),vertexOrder.end(),
+  std::sort(vertexOrder.begin(),vertexOrder.end(),
       [&degreeConf] (NODE_T t1, NODE_T t2) {return degreeConf[t1] > degreeConf[t2];});
 
 
@@ -198,7 +261,7 @@ NODE_T PaletteColor::attemptToColor(NODE_T vtx) {
 //Does not perform well
 void PaletteColor::confColor() {
   
-  std::cout<<"conflicting edges: "<<nConflicts<<std::endl; 
+  //std::cout<<"conflicting edges: "<<nConflicts<<std::endl; 
   orderConfVertices();
   for(NODE_T i:vertexOrder) {
     if(confAdjList[i].empty() == false) {
@@ -273,7 +336,7 @@ void PaletteColor::fixBuckets(NODE_T vtx, NODE_T col, NODE_T &vtxProcessed,
 void PaletteColor::confColorGreedy() {
   
   double t1 = omp_get_wtime();
-  std::cout<<"# of conflicting edges: "<<nConflicts<<std::endl; 
+  //std::cout<<"# of conflicting edges: "<<nConflicts<<std::endl; 
   //Buckets of size T;
   std::vector<std::vector<NODE_T> > verBucket(T+1);
   //to stoe the position of vertex in the corresponding bucket
@@ -294,6 +357,7 @@ void PaletteColor::confColorGreedy() {
       uniform_dist = std::uniform_int_distribution<NODE_T>(0, 
           colList[i].size()-1);
       colors[i] = colList[i][uniform_dist(engine)];
+  double t1 = omp_get_wtime();
       vtxProcessed++;
       continue;
     }
@@ -348,8 +412,8 @@ void PaletteColor::confColorGreedy() {
       } 
     }
   }
-  std::cout<<"# of invalid vertices: "<<invalidVertices.size()
-    <<std::endl;
+  //std::cout<<"# of invalid vertices: "<<invalidVertices.size()
+  //  <<std::endl;
 
  /* 
   NODE_T invalid = 0;
@@ -360,19 +424,117 @@ void PaletteColor::confColorGreedy() {
   std::cout<<invalid<<std::endl;
   */
 
-  confColorTime = omp_get_wtime() - t1;
+  palStat[level].confColorTime = omp_get_wtime() - t1;
   
-  std::cout<<"Conflict Coloring Time: "<<confColorTime<<std::endl;
+  //std::cout<<"Conflict Coloring Time: "<<confColorTime<<std::endl;
 
   nColors = *std::max_element(colors.begin(),colors.end()) + 1;
 
 }
 
 
+void PaletteColor::confColorGreedy(std::vector<NODE_T> &nodeList) {
+  
+  double t1 = omp_get_wtime();
+  //std::cout<<"# of conflicting edges: "<<nConflicts<<std::endl; 
+  //Buckets of size T;
+  std::vector<std::vector<NODE_T> > verBucket(T+1);
+  //to stoe the position of vertex in the corresponding bucket
+  std::vector<NODE_T> verLocation(n);
+  
+  NODE_T vMin = T; 
+
+  std::mt19937 engine(2034587);
+  std::uniform_int_distribution<NODE_T> uniform_dist(0, colThreshold-1);
+
+  //# of verties processed. For stopping condition later
+  NODE_T vtxProcessed = 0;
+  for(NODE_T i:nodeList) {
+    //if this is a non-conflicting vertex we can color it arbitrarily from the 
+    //list of colors.
+    if(confAdjList[i].empty() == true) {
+      //std::cout<<"coloring non-conflicting edge"<<std::endl;
+      uniform_dist = std::uniform_int_distribution<NODE_T>(0, 
+          colList[i].size()-1);
+      colors[i] = colList[i][uniform_dist(engine)];
+      vtxProcessed++;
+      continue;
+    }
+    //otherwise place it in appropriate bucket
+    NODE_T t = colList[i].size();
+    verBucket[t-1].push_back(i); 
+    verLocation[i] = verBucket[t-1].size()-1;
+    
+    //the minimum bucket length
+    if(t < vMin) {
+      vMin = t; 
+    }
+  }
+ 
+  //keep processing until we see all the vertices. 
+  while (vtxProcessed < nodeList.size()) {
+    for(NODE_T i = vMin-1; i < T;i++) {
+      //if this bucket has elements
+      //select a random vertex and swap it with the last element
+      //to efficiently remove this vertex from the bucket.
+      //std::cout<<"Bucket: "<<i<<"size: "<<verBucket[i].size()<<std::endl;
+      if(verBucket[i].empty() == false) {
+        uniform_dist = std::uniform_int_distribution<NODE_T>(0, 
+            verBucket[i].size()-1);
+        NODE_T selectedVtxLoc = uniform_dist(engine);
+        NODE_T selectedVtx = verBucket[i].at(selectedVtxLoc);
+
+        //update the verLocation array of the last element
+        verLocation[verBucket[i].back()] = selectedVtxLoc;
+        
+        //swap the vertex with the last element
+        std::swap(verBucket[i][selectedVtxLoc],verBucket[i].back());
+        //remove the vertex
+        verBucket[i].pop_back();
+
+        //attempt to color this vertex
+        NODE_T colInd = attemptToColor(selectedVtx);
+        if(colInd>=0) {
+          //remove col at colInd of the vtx is not necessary
+          //std::swap(colList[selectedVtx][colInd],colList[selectedVtx].back());
+          //colList[selectedVtx].pop_back();
+
+          fixBuckets(selectedVtx,colors[selectedVtx],vtxProcessed,verBucket,verLocation,vMin); 
+          //std::cout<<"updated VMin: "<<vMin<<std::endl;
+        }
+        else {
+          colors[selectedVtx] = -2;
+          invalidVertices.push_back(selectedVtx); 
+        }
+        vtxProcessed++;
+        break;
+      } 
+    }
+  }
+ // std::cout<<"# of invalid vertices: "<<invalidVertices.size()
+   // <<std::endl;
+
+ /* 
+  NODE_T invalid = 0;
+  for(NODE_T i=0;i<n;i++) {
+    if(colors[i] == -2)
+     invalid++; 
+  }
+  std::cout<<invalid<<std::endl;
+  */
+
+  palStat[level].confColorTime = omp_get_wtime() - t1;
+  
+  //std::cout<<"Conflict Coloring Time: "<<confColorTime<<std::endl;
+
+  nColors = *std::max_element(colors.begin(),colors.end()) + 1;
+
+}
 void PaletteColor::naiveGreedyColor(std::vector<NODE_T> vertList, ClqPart::JsonGraph &jsongraph, NODE_T offset) {
 
   if(vertList.empty() == false) {
 
+    double t1 = omp_get_wtime();
     std::vector<NODE_T> forbiddenCol(n,-1);
     colors[vertList[0]] = offset; 
 
@@ -396,8 +558,22 @@ void PaletteColor::naiveGreedyColor(std::vector<NODE_T> vertList, ClqPart::JsonG
         } 
       }
     }
+    palStat[level].invColorTime = omp_get_wtime() - t1; 
     nColors = *std::max_element(colors.begin(),colors.end()) + 1;
   }
+}
+
+bool PaletteColor::checkValidity( ClqPart::JsonGraph &jsongraph) {
+  for(NODE_T eu =0; eu < n-1; eu++) {
+    for(NODE_T ev = eu+1; ev < n; ev++) {
+
+      if(jsongraph.is_an_edge(eu,ev) == false) {
+        if((colors[eu] >  -1 && colors[ev] > -1) && (colors[eu] == colors[ev])) 
+          return false;
+      }
+    }
+  }
+  return true;
 }
 
 
