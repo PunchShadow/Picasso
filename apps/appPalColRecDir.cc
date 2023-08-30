@@ -121,7 +121,11 @@ int main(int argC, char *argV[]) {
       jsongraph.resetNumEdge();
       level++;
       if(invVert.empty() == false) {
-        palcol.reInit(invVert,invVert.size()/8,1);
+        if(invVert.size() > 40000) alpha = 3;
+        else if (invVert.size() > 20000) alpha = 2; 
+        else if (invVert.size() > 5000) alpha = 1.5; 
+        else alpha = 1;
+        palcol.reInit(invVert,invVert.size()/8,alpha);
         palcol.buildConfGraph(jsongraph,invVert);
         palcol.confColorGreedy(invVert);
       }
