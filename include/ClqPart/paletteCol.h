@@ -222,7 +222,7 @@ void buildConfGraphGpuMemConscious (ClqPart::JsonGraph &jsongraph) {
     ERR_CHK(cudaMemcpy(h_confOffsets.data(), d_confOffsets, h_confOffsets.size() * sizeof(OffsetTy), cudaMemcpyDeviceToHost));
     ERR_CHK(cudaMemcpy(h_confVertices.data(), d_confCsr, h_confVertices.size() * sizeof(NODE_T), cudaMemcpyDeviceToHost));
     ERR_CHK(cudaDeviceSynchronize());
-    std::cout << h_confVertices[0] << " " << h_confVertices[nConflicts*2-1] << std::endl;
+    // std::cout << h_confVertices[0] << " " << h_confVertices[nConflicts*2-1] << std::endl;
   }
   else{
     // Too Large for GPU memory, use CPU to post-process
