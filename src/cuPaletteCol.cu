@@ -178,6 +178,48 @@ __global__ void build_coo_conflict_graph_kernel(
 }
 
 template <typename OffsetTy>
+__global__ void build_coo_conflict_graph_kernel(
+        const uint32_t *__restrict__ d_pauliEnc,
+        const int pauliEncSize,
+        const NODE_T *__restrict__ d_colList, 
+        const NODE_T *__restrict__ d_nodeList,
+        const NODE_T n_vertices, 
+        const NODE_T n_colors,
+        OffsetTy *__restrict__ d_confOffsets, 
+        NODE_T *__restrict__ d_confAdjList, 
+        OffsetTy *__restrict__ d_nConflicts){
+    Edge *d_cooEdgeList = (Edge *)d_confAdjList;
+    // int num_edges = n_vertices*(n_vertices - 1)/2;
+    OffsetTy num_edges = (OffsetTy)n_vertices*(OffsetTy)n_vertices;
+    // NODE_T halfway_point = n_vertices / 2;
+    // Grid-Stride Loop only for lower triangle of matrix
+    for(OffsetTy edge_id = blockIdx.x * blockDim.x + threadIdx.x; edge_id < num_edges; edge_id += blockDim.x * gridDim.x){
+        NODE_T row = edge_id / (OffsetTy)n_vertices;
+        NODE_T col = edge_id - ((OffsetTy)row * (OffsetTy)n_vertices);
+        // Equivalent to edge_id % n_vertices
+        if(row > col){
+            const NODE_T row_mapped = d_nodeList[row];
+            const NODE_T col_mapped = d_nodeList[col];
+            const uint32_t *pauli1 = &d_pauliEnc[row_mapped * pauliEncSize];
+            const uint32_t *pauli2 = &d_pauliEnc[col_mapped * pauliEncSize];
+            bool isedge = compare_pauli_matrices(pauli1, pauli2, pauliEncSize);
+            // If conflicting complement edge
+            if(!isedge){
+                const NODE_T *colList1 = &d_colList[row * n_colors];
+                const NODE_T *colList2 = &d_colList[col * n_colors];
+                bool common_color = findFirstCommonElement(colList1, colList2, n_colors);
+                if(common_color){
+                    OffsetTy index_offset = atomicAdd(d_nConflicts, 1);
+                    atomicAdd(&d_confOffsets[row_mapped], 1);
+                    atomicAdd(&d_confOffsets[col_mapped], 1);
+                    d_cooEdgeList[index_offset] = Edge{row_mapped, col_mapped};
+                }
+            }
+        }
+    }
+}
+
+template <typename OffsetTy>
 __global__ void build_csr_conflict_graph_kernel(
         const NODE_T n_vertices, 
         const OffsetTy num_conf_edges,
@@ -262,6 +304,29 @@ void buildCooConfGraphDevice(
 }
 
 template <typename OffsetTy>
+void buildCooConfGraphDevice(
+        const uint32_t *d_pauliEnc,
+        const int pauliEncSize,
+        const NODE_T *d_colList,
+        const NODE_T *d_nodeList,
+        const NODE_T n_vertices,
+        const NODE_T n_colors,
+        OffsetTy *d_confOffsets,
+        NODE_T *d_confAdjList,
+        OffsetTy *d_nConflicts){
+    // Find cuda properties
+    int device;
+    cudaDeviceProp prop;
+    cudaGetDevice(&device);
+    cudaGetDeviceProperties(&prop, device);
+    int nSM = prop.multiProcessorCount;
+    int maxThreadsPerSM = prop.maxThreadsPerMultiProcessor;
+    int block_size = 256;
+    int num_blocks = nSM * (maxThreadsPerSM / block_size);
+    build_coo_conflict_graph_kernel<<<num_blocks, block_size>>>(d_pauliEnc, pauliEncSize, d_colList, d_nodeList, n_vertices, n_colors, d_confOffsets, d_confAdjList, d_nConflicts);
+}
+
+template <typename OffsetTy>
 void buildCooCompGraphDevice(
         const uint32_t *d_pauliEnc,
         const int pauliEncSize,
@@ -316,6 +381,9 @@ __host__ void cubInclusiveSum(void *d_confOffsetsCnt, const NODE_T n, OffsetTy *
 template void buildCooConfGraphDevice(const unsigned int *, const int, const NODE_T *, const NODE_T, const NODE_T, unsigned int *, NODE_T *, unsigned int *);
 template void buildCooConfGraphDevice(const unsigned int *, const int, const NODE_T *, const NODE_T, const NODE_T, unsigned long long *, NODE_T *, unsigned long long *);
 template void buildCooConfGraphDevice(const unsigned int *, const int, const NODE_T *, const NODE_T, const NODE_T, NODE_T *, NODE_T *, NODE_T *);
+template void buildCooConfGraphDevice(const unsigned int *, const int, const NODE_T *, const NODE_T *, const NODE_T, const NODE_T, unsigned int *, NODE_T *, unsigned int *);
+template void buildCooConfGraphDevice(const unsigned int *, const int, const NODE_T *, const NODE_T *, const NODE_T, const NODE_T, unsigned long long *, NODE_T *, unsigned long long *);
+template void buildCooConfGraphDevice(const unsigned int *, const int, const NODE_T *, const NODE_T *, const NODE_T, const NODE_T, NODE_T *, NODE_T *, NODE_T *);
 template void buildCooCompGraphDevice(const unsigned int *, const int, const NODE_T *, const NODE_T, const NODE_T, unsigned int *, unsigned int *);
 template void buildCooCompGraphDevice(const unsigned int *, const int, const NODE_T *, const NODE_T, const NODE_T, unsigned long long *, unsigned long long *);
 template void buildCooCompGraphDevice(const unsigned int *, const int, const NODE_T *, const NODE_T, const NODE_T, NODE_T *, NODE_T *);

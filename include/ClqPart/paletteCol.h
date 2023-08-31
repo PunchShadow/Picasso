@@ -187,6 +187,7 @@ void buildConfGraph ( ClqPart::JsonGraph &jsongraph, std::vector<NODE_T> &nodeLi
       auto ev = nodeList[iv];
 
       if(jsongraph.is_an_edge<PauliTy>(eu,ev) == false) {
+        // Assert colList[eu] and colList[ev] sizes are equal to T
         bool hasCommon = findFirstCommonElement(colList[eu],colList[ev]);
         if(hasCommon == true ) {
 
@@ -287,7 +288,8 @@ void buildConfGraphGpuMemConscious (ClqPart::JsonGraph &jsongraph) {
       h_confVertices[offset] = e.u;
     }
   }
-  std::cout << "nConflicts: " << nConflicts << std::endl;
+  ERR_CHK(cudaFree(d_confOffsetsCnt));
+  // std::cout << "nConflicts: " << nConflicts << std::endl;
   #pragma omp parallel for
   for(NODE_T i = 0; i < n; i++) {
     // Sort each vertex's edgelist
@@ -338,7 +340,93 @@ void buildConfGraphGpuMemConscious (ClqPart::JsonGraph &jsongraph) {
   #endif // COMPLEMENT_GRAPH
 }
 
+void buildConfGraphGpuMemConscious (ClqPart::JsonGraph &jsongraph, std::vector<NODE_T> &nodeList) {
+
+  double t1 = omp_get_wtime();
+
+  // Write nodeList to GPU
+  NODE_T *d_nodeList;
+  ERR_CHK(cudaMalloc(&d_nodeList, nodeList.size() * sizeof(NODE_T)));
+  ERR_CHK(cudaMemcpy(d_nodeList, nodeList.data(), nodeList.size() * sizeof(NODE_T), cudaMemcpyHostToDevice));
+
+  pauliEncSize = jsongraph.getPauliEncSize();
+  // std::vector<uint32_t> &h_pauliEnc = jsongraph.getEncodedData();
+  // ERR_CHK(cudaMalloc(&d_pauliEnc, h_pauliEnc.size() * sizeof(NODE_T)));
+  // ERR_CHK(cudaMemcpy(d_pauliEnc, h_pauliEnc.data(), h_pauliEnc.size() * sizeof(NODE_T), cudaMemcpyHostToDevice));
+
+  // h_confOffsets.resize(n+1);
+  // ERR_CHK(cudaMalloc(&d_confOffsets, h_confOffsets.size() * sizeof(OffsetTy)));
+  ERR_CHK(cudaMemset(d_confOffsets, 0, h_confOffsets.size() * sizeof(OffsetTy)));
+  OffsetTy *d_confOffsetsCnt;
+  ERR_CHK(cudaMalloc(&d_confOffsetsCnt, n * sizeof(OffsetTy)));
+
+  OffsetTy *d_nConflicts;
+  ERR_CHK(cudaMalloc(&d_nConflicts, sizeof(OffsetTy)));
+  ERR_CHK(cudaMemset(d_nConflicts, 0, sizeof(OffsetTy)));
+  // Find out how much free memory is on the GPU
+  size_t freeMem, totalMem;
+  ERR_CHK(cudaMemGetInfo(&freeMem, &totalMem));
+  // Allocate 90% of it
+  size_t allocMem = (freeMem * 0.9);
+  ERR_CHK(cudaMalloc(&d_confVertices, allocMem));
+
+  ERR_CHK(cudaDeviceSynchronize());
+
+  buildCooConfGraphDevice(d_pauliEnc, pauliEncSize, d_colList, d_nodeList, (NODE_T)nodeList.size(), T, d_confOffsets, d_confVertices, d_nConflicts);
+  ERR_CHK(cudaDeviceSynchronize());
+  // Read d_nConflicts from GPU
+  ERR_CHK(cudaMemcpy(&nConflicts, d_nConflicts, sizeof(OffsetTy), cudaMemcpyDeviceToHost));
+  h_confVertices.resize(nConflicts*2);
+  cubInclusiveSum((void *)d_confOffsetsCnt, n, d_confOffsets);
+  cudaDeviceSynchronize();
+  // if nConflicts * sizeof(NODE_T) < half of allocMem, then we can use the memory
+  // allocated for d_confVertices
+  if(nConflicts * 2 < (allocMem/sizeof(NODE_T))/2){
+    std::cout << "Fits: " << nConflicts * 2 * sizeof(NODE_T) << " < " << allocMem/2 << std::endl;
+    NODE_T *d_confCsr = d_confVertices + nConflicts*2;
+    buildCsrConfGraphDevice(n, d_confOffsets, d_confOffsetsCnt, d_confVertices, d_confCsr, nConflicts);
+    ERR_CHK(cudaDeviceSynchronize());
+    // Read d_confCsr from GPU
+    ERR_CHK(cudaMemcpy(h_confOffsets.data(), d_confOffsets, h_confOffsets.size() * sizeof(OffsetTy), cudaMemcpyDeviceToHost));
+    ERR_CHK(cudaMemcpy(h_confVertices.data(), d_confCsr, h_confVertices.size() * sizeof(NODE_T), cudaMemcpyDeviceToHost));
+    ERR_CHK(cudaDeviceSynchronize());
+    // std::cout << h_confVertices[0] << " " << h_confVertices[nConflicts*2-1] << std::endl;
+  }
+  else{
+    // Too Large for GPU memory, use CPU to post-process
+    ERR_CHK(cudaMemcpy(h_confOffsets.data(), d_confOffsets, h_confOffsets.size() * sizeof(OffsetTy), cudaMemcpyDeviceToHost));
+    std::vector<Edge> h_cooVerticesTmp(nConflicts);
+    ERR_CHK(cudaMemcpy(h_cooVerticesTmp.data(), d_confVertices, h_cooVerticesTmp.size() * sizeof(NODE_T), cudaMemcpyDeviceToHost));
+    std::vector<std::atomic<OffsetTy>> h_confOffsetsTmp(n);
+    for(NODE_T i = 0; i < nodeList.size(); i++){
+      std::atomic_init(&h_confOffsetsTmp[i], 0);
+    }
+    #pragma omp parallel for
+    for(NODE_T i = 0; i < nConflicts; i++){
+      Edge e = h_cooVerticesTmp[i];
+      OffsetTy offset = h_confOffsets[e.u] + std::atomic_fetch_add(&h_confOffsetsTmp[e.u], 1);
+      h_confVertices[offset] = e.v;
+      offset = h_confOffsets[e.v] + std::atomic_fetch_add(&h_confOffsetsTmp[e.v], 1);
+      h_confVertices[offset] = e.u;
+    }
+  }
+  // Free d_confOffsetsCnt
+  ERR_CHK(cudaFree(d_confOffsetsCnt));
+  ERR_CHK(cudaFree(d_nodeList));
+  ERR_CHK(cudaFree(d_nConflicts));
+  // std::cout << "nConflicts: " << nConflicts << std::endl;
+  #pragma omp parallel for
+  for(NODE_T i : nodeList) {
+    // std::cout << "Sorting " << i << std::endl;
+    // Sort each vertex's edgelist
+    std::sort(h_confVertices.begin() + h_confOffsets[i], h_confVertices.begin() + h_confOffsets[i+1]);
+  }
+  palStat[level].confBuildTime = omp_get_wtime() - t1;
+  palStat[level].mConf = nConflicts;
+}
+
 void buildConfGraphGpu (ClqPart::JsonGraph &jsongraph) {
+  double t1 = omp_get_wtime();
   pauliEncSize = jsongraph.getPauliEncSize();
   std::vector<uint32_t> &h_pauliEnc = jsongraph.getEncodedData();
   ERR_CHK(cudaMalloc(&d_pauliEnc, h_pauliEnc.size() * sizeof(NODE_T)));
@@ -367,6 +455,8 @@ void buildConfGraphGpu (ClqPart::JsonGraph &jsongraph) {
   ERR_CHK(cudaDeviceSynchronize());
   // Read d_nConflicts from GPU
   ERR_CHK(cudaMemcpy(&nConflicts, d_nConflicts, sizeof(OffsetTy), cudaMemcpyDeviceToHost));
+  // Free d_nConflicts
+  ERR_CHK(cudaFree(d_nConflicts));
   // Print nConflicts
   nConflicts /= 2;
   // Copy h_confOffsets and h_confVertices from GPU
@@ -383,6 +473,8 @@ void buildConfGraphGpu (ClqPart::JsonGraph &jsongraph) {
     }
     std::sort(confAdjList[i].begin(), confAdjList[i].end());
   }
+  palStat[level].confBuildTime = omp_get_wtime() - t1;
+  palStat[level].mConf = nConflicts;
   #ifdef COMPLEMENT_GRAPH
   // Find lowest degree and highest degree vertex
   NODE_T minDegree = n;
@@ -903,6 +995,7 @@ void confColorGreedy(std::vector<NODE_T> &nodeList) {
 
 //initialize for the recursive implementation. 
   void reInit(std::vector<NODE_T> & nodeList,NODE_T colThresh, float alpha=1, NODE_T lst_sz = -1) {
+    std::sort(nodeList.begin(), nodeList.end());
     colThreshold = colThresh; 
     nConflicts = 0;
     //The nodes in the node List need to have color -1.
@@ -911,6 +1004,24 @@ void confColorGreedy(std::vector<NODE_T> &nodeList) {
       colList[u].clear();
       confAdjList[u].clear();
     }
+    #ifdef ENABLE_GPU
+    h_colList.clear();
+    // h_confOffsets.clear();
+    // h_confVertices.clear();
+    // Free d_colList
+    if (d_colList != nullptr) {
+      ERR_CHK(cudaFree(d_colList));
+      d_colList = nullptr;
+    }
+    // if (d_confOffsets != nullptr) {
+    //   ERR_CHK(cudaFree(d_confOffsets));
+    //   d_confOffsets = nullptr;
+    // }
+    if (d_confVertices != nullptr) {
+      ERR_CHK(cudaFree(d_confVertices));
+      d_confVertices = nullptr;
+    }
+    #endif // ENABLE_GPU
     if(lst_sz < 0)
       T =  static_cast<NODE_T> (alpha*log(nodeList.size()));
     else
@@ -920,7 +1031,7 @@ void confColorGreedy(std::vector<NODE_T> &nodeList) {
       T = colThresh;
     invalidVertices.clear();
 
-    palStat.push_back({nodeList.size(),-1,-1,colThreshold,T,0,0.0,0.0,0.0});
+    palStat.push_back({(NODE_T)nodeList.size(),-1,-1,colThreshold,T,0,0.0,0.0,0.0});
     level = level + 1;
     assignListColor(nodeList,getNumColors());
   }
@@ -1007,7 +1118,7 @@ void assignListColor(std::vector<NODE_T> &nodeList,NODE_T offset) {
   
   double t1 = omp_get_wtime();
   #ifdef ENABLE_GPU
-  h_colList.reserve(n * T);
+  h_colList.reserve(nodeList.size() * T);
   #endif // ENABLE_GPU
   for (NODE_T i:nodeList) {
     std::fill(isPresent.begin(),isPresent.end(),false);
@@ -1029,7 +1140,6 @@ void assignListColor(std::vector<NODE_T> &nodeList,NODE_T offset) {
   }
   #ifdef ENABLE_GPU
   // Copy h_colList to GPU
-  cudaError_t err;
   ERR_CHK(cudaMalloc(&d_colList, h_colList.size() * sizeof(NODE_T)));
   ERR_CHK(cudaMemcpy(d_colList, h_colList.data(), h_colList.size() * sizeof(NODE_T), cudaMemcpyHostToDevice));
   #endif // ENABLE_GPU

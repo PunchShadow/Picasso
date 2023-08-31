@@ -28,6 +28,9 @@ template <typename OffsetTy>
 void buildCooConfGraphDevice(const uint32_t *, const int, const NODE_T *, const NODE_T, const NODE_T, OffsetTy *, NODE_T *, OffsetTy *);
 
 template <typename OffsetTy>
+void buildCooConfGraphDevice(const uint32_t *, const int, const NODE_T *, const NODE_T *, const NODE_T, const NODE_T, OffsetTy *, NODE_T *, OffsetTy *);
+
+template <typename OffsetTy>
 void buildCooCompGraphDevice(const uint32_t *, const int, const NODE_T *, const NODE_T, const NODE_T, OffsetTy *, OffsetTy *);
 
 template <typename OffsetTy>
