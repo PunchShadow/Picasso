@@ -49,16 +49,30 @@ inline void gpuAssert(cudaError_t code, const char *file, int line,
 
 bool findFirstCommonElement(const std::vector<NODE_T>& vec1, const std::vector<NODE_T>& vec2);
 
+struct PalColStat {
+  NODE_T n;
+  EDGE_T m;
+  EDGE_T mConf;
+  NODE_T palSz;
+  NODE_T lstSz;
+  NODE_T nColors;
+  double assignTime;
+  double confBuildTime;
+  double confColorTime; 
+  double invColorTime;
+};
+
 template<typename OffsetTy = int>
 class PaletteColor {
   
   NODE_T n;
   NODE_T colThreshold;
+  NODE_T T;
   std::vector<std::vector<NODE_T> > colList;
   std::vector<NODE_T> colors;
-  std::vector<NODE_T> confColors;
   NODE_T nColors;
   OffsetTy nConflicts;
+  int level;
 
   #ifdef ENABLE_GPU
   std::vector<NODE_T> h_colList;
@@ -74,33 +88,31 @@ class PaletteColor {
   OffsetTy *d_confOffsets;
   #endif
   
-  std::vector<NODE_T> confVertices;
   std::vector<NODE_T> invalidVertices;
   std::vector<NODE_T> vertexOrder;
   std::vector<std::vector< NODE_T> > confAdjList;
-
-  NODE_T T;
-  double assignTime;
-  double confColorTime;
-  double invalidColorTime;
-
+  std::vector<PalColStat> palStat;
 
 public:
-  PaletteColor( NODE_T n1, NODE_T colThresh, float alpha=1) {
+  PaletteColor( NODE_T n1, NODE_T colThresh, float alpha=1, NODE_T lst_sz = -1) {
     n = n1;
     colThreshold = colThresh; 
     colors.resize(n,-1);
-    confColors.resize(n,-1);
-    vertexOrder.resize(n);
     nColors = 0;
     nConflicts = 0;
-    T =  static_cast<NODE_T> (alpha*log(n));
-    
-    confVertices.resize(n,0);
+    if(lst_sz < 0)
+      T =  static_cast<NODE_T> (alpha*log(n));
+    else
+      T = lst_sz;
+
+    if(T>colThresh)
+      T = colThresh;
+
     confAdjList.resize(n);
     colList.resize(n);
-    
     invalidVertices.clear();
+    palStat.push_back({n,-1,-1,colThreshold,T,0,0.0,0.0,0.0,0.0});
+    level = 0;
     assignListColor();
   }
 
@@ -108,6 +120,7 @@ public:
   void naiveGreedyColor(std::vector<NODE_T> vertList, ClqPart::JsonGraph &jsongraph, NODE_T offset) {
 
     if(vertList.empty() == false) {
+      double t1 = omp_get_wtime();
 
       std::vector<NODE_T> forbiddenCol(n,-1);
       colors[vertList[0]] = offset; 
@@ -132,6 +145,7 @@ public:
           } 
         }
       }
+      palStat[level].invColorTime = omp_get_wtime() - t1; 
       nColors = *std::max_element(colors.begin(),colors.end()) + 1;
     }
   }
@@ -142,7 +156,7 @@ public:
 template<typename PauliTy = std::string>
 void buildConfGraph ( ClqPart::JsonGraph &jsongraph) {
 
-  
+  double t1 = omp_get_wtime();
   for(NODE_T eu =0; eu < n-1; eu++) {
     for(NODE_T ev = eu+1; ev < n; ev++) {
 
@@ -157,6 +171,34 @@ void buildConfGraph ( ClqPart::JsonGraph &jsongraph) {
       }
     }
   }
+  palStat[level].confBuildTime = omp_get_wtime() - t1;
+  palStat[level].mConf = nConflicts;
+}
+
+//Overloaded function to work on the subset of the nodes
+template<typename PauliTy = std::string>
+void buildConfGraph ( ClqPart::JsonGraph &jsongraph, std::vector<NODE_T> &nodeList) {
+
+  double t1 = omp_get_wtime();
+  NODE_T num = nodeList.size(); 
+  for(NODE_T iu =0; iu < num-1; iu++) {
+    for(NODE_T iv = iu+1; iv < num; iv++) {
+      auto eu = nodeList[iu];
+      auto ev = nodeList[iv];
+
+      if(jsongraph.is_an_edge<PauliTy>(eu,ev) == false) {
+        bool hasCommon = findFirstCommonElement(colList[eu],colList[ev]);
+        if(hasCommon == true ) {
+
+          confAdjList[eu].push_back(ev); 
+          confAdjList[ev].push_back(eu); 
+          nConflicts++;
+        }
+      }
+    }
+  }
+  palStat[level].confBuildTime = omp_get_wtime() - t1;
+  palStat[level].mConf = nConflicts;
 
 }
 
@@ -178,6 +220,9 @@ void buildStreamConfGraph ( NODE_T eu, NODE_T ev) {
 
 #ifdef ENABLE_GPU
 void buildConfGraphGpuMemConscious (ClqPart::JsonGraph &jsongraph) {
+
+  double t1 = omp_get_wtime();
+
   pauliEncSize = jsongraph.getPauliEncSize();
   std::vector<uint32_t> &h_pauliEnc = jsongraph.getEncodedData();
   ERR_CHK(cudaMalloc(&d_pauliEnc, h_pauliEnc.size() * sizeof(NODE_T)));
@@ -248,6 +293,8 @@ void buildConfGraphGpuMemConscious (ClqPart::JsonGraph &jsongraph) {
     // Sort each vertex's edgelist
     std::sort(h_confVertices.begin() + h_confOffsets[i], h_confVertices.begin() + h_confOffsets[i+1]);
   }
+  palStat[level].confBuildTime = omp_get_wtime() - t1;
+  palStat[level].mConf = nConflicts;
   #else // COMPLEMENT_GRAPH
   // Compute what the offsets would be for a complement graph
   buildCooCompGraphDevice(d_pauliEnc, pauliEncSize, d_colList, n, T, d_confOffsets, d_nConflicts);
@@ -373,7 +420,7 @@ void buildConfGraphGpu (ClqPart::JsonGraph &jsongraph) {
 void confColorGreedyCSR() {
   
   double t1 = omp_get_wtime();
-  std::cout<<"# of conflicting edges: "<<nConflicts<<std::endl; 
+  // std::cout<<"# of conflicting edges: "<<nConflicts<<std::endl; 
   //Buckets of size T;
   std::vector<std::vector<NODE_T> > verBucket(T+1);
   //to stoe the position of vertex in the corresponding bucket
@@ -448,8 +495,8 @@ void confColorGreedyCSR() {
       } 
     }
   }
-  std::cout<<"# of invalid vertices: "<<invalidVertices.size()
-    <<std::endl;
+  // std::cout<<"# of invalid vertices: "<<invalidVertices.size()
+  //   <<std::endl;
 
  /* 
   NODE_T invalid = 0;
@@ -460,9 +507,107 @@ void confColorGreedyCSR() {
   std::cout<<invalid<<std::endl;
   */
 
-  confColorTime = omp_get_wtime() - t1;
+  palStat[level].confColorTime = omp_get_wtime() - t1;
   
-  std::cout<<"Conflict Coloring Time: "<<confColorTime<<std::endl;
+  // std::cout<<"Conflict Coloring Time: "<<confColorTime<<std::endl;
+
+  nColors = *std::max_element(colors.begin(),colors.end()) + 1;
+
+}
+
+void confColorGreedyCSR(std::vector<NODE_T> &nodeList) {
+  
+  double t1 = omp_get_wtime();
+  // std::cout<<"# of conflicting edges: "<<nConflicts<<std::endl; 
+  //Buckets of size T;
+  std::vector<std::vector<NODE_T> > verBucket(T+1);
+  //to stoe the position of vertex in the corresponding bucket
+  std::vector<NODE_T> verLocation(n);
+  
+  NODE_T vMin = T; 
+
+  std::mt19937 engine(2034587);
+  std::uniform_int_distribution<NODE_T> uniform_dist(0, colThreshold-1);
+
+  //# of verties processed. For stopping condition later
+  NODE_T vtxProcessed = 0;
+  for(NODE_T i:nodeList) {
+    //if this is a non-conflicting vertex we can color it arbitrarily from the 
+    //list of colors.
+    if(h_confOffsets[i+1] - h_confOffsets[i] == 0) {
+      //std::cout<<"coloring non-conflicting edge"<<std::endl;
+      uniform_dist = std::uniform_int_distribution<NODE_T>(0, 
+          colList[i].size()-1);
+      colors[i] = colList[i][uniform_dist(engine)];
+      vtxProcessed++;
+      continue;
+    }
+    //otherwise place it in appropriate bucket
+    NODE_T t = colList[i].size();
+    verBucket[t-1].push_back(i); 
+    verLocation[i] = verBucket[t-1].size()-1;
+    
+    //the minimum bucket length
+    if(t < vMin) {
+      vMin = t; 
+    }
+  }
+ 
+  //keep processing until we see all the vertices. 
+  while (vtxProcessed < nodeList.size()) {
+    for(NODE_T i = vMin-1; i < T;i++) {
+      //if this bucket has elements
+      //select a random vertex and swap it with the last element
+      //to efficiently remove this vertex from the bucket.
+      //std::cout<<"Bucket: "<<i<<"size: "<<verBucket[i].size()<<std::endl;
+      if(verBucket[i].empty() == false) {
+        uniform_dist = std::uniform_int_distribution<NODE_T>(0, 
+            verBucket[i].size()-1);
+        NODE_T selectedVtxLoc = uniform_dist(engine);
+        NODE_T selectedVtx = verBucket[i].at(selectedVtxLoc);
+
+        //update the verLocation array of the last element
+        verLocation[verBucket[i].back()] = selectedVtxLoc;
+        
+        //swap the vertex with the last element
+        std::swap(verBucket[i][selectedVtxLoc],verBucket[i].back());
+        //remove the vertex
+        verBucket[i].pop_back();
+
+        //attempt to color this vertex
+        NODE_T colInd = attemptToColor(selectedVtx);
+        if(colInd>=0) {
+          //remove col at colInd of the vtx is not necessary
+          //std::swap(colList[selectedVtx][colInd],colList[selectedVtx].back());
+          //colList[selectedVtx].pop_back();
+
+          fixBucketsCSR(selectedVtx,colors[selectedVtx],vtxProcessed,verBucket,verLocation,vMin); 
+          //std::cout<<"updated VMin: "<<vMin<<std::endl;
+        }
+        else {
+          colors[selectedVtx] = -2;
+          invalidVertices.push_back(selectedVtx); 
+        }
+        vtxProcessed++;
+        break;
+      } 
+    }
+  }
+  // std::cout<<"# of invalid vertices: "<<invalidVertices.size()
+  //   <<std::endl;
+
+ /* 
+  NODE_T invalid = 0;
+  for(NODE_T i=0;i<n;i++) {
+    if(colors[i] == -2)
+     invalid++; 
+  }
+  std::cout<<invalid<<std::endl;
+  */
+
+  palStat[level].confColorTime = omp_get_wtime() - t1;
+  
+  // std::cout<<"Conflict Coloring Time: "<<confColorTime<<std::endl;
 
   nColors = *std::max_element(colors.begin(),colors.end()) + 1;
 
@@ -563,7 +708,7 @@ void confColor() {
 void confColorGreedy() {
   
   double t1 = omp_get_wtime();
-  std::cout<<"# of conflicting edges: "<<nConflicts<<std::endl; 
+  // std::cout<<"# of conflicting edges: "<<nConflicts<<std::endl; 
   //Buckets of size T;
   std::vector<std::vector<NODE_T> > verBucket(T+1);
   //to stoe the position of vertex in the corresponding bucket
@@ -638,8 +783,8 @@ void confColorGreedy() {
       } 
     }
   }
-  std::cout<<"# of invalid vertices: "<<invalidVertices.size()
-    <<std::endl;
+  // std::cout<<"# of invalid vertices: "<<invalidVertices.size()
+  //   <<std::endl;
 
  /* 
   NODE_T invalid = 0;
@@ -650,34 +795,160 @@ void confColorGreedy() {
   std::cout<<invalid<<std::endl;
   */
 
-  confColorTime = omp_get_wtime() - t1;
+  palStat[level].confColorTime = omp_get_wtime() - t1;
   
-  std::cout<<"Conflict Coloring Time: "<<confColorTime<<std::endl;
+  // std::cout<<"Conflict Coloring Time: "<<confColorTime<<std::endl;
 
   nColors = *std::max_element(colors.begin(),colors.end()) + 1;
 
 }
 
-// #endif
+void confColorGreedy(std::vector<NODE_T> &nodeList) {
+  
+  double t1 = omp_get_wtime();
+  //std::cout<<"# of conflicting edges: "<<nConflicts<<std::endl; 
+  //Buckets of size T;
+  std::vector<std::vector<NODE_T> > verBucket(T+1);
+  //to stoe the position of vertex in the corresponding bucket
+  std::vector<NODE_T> verLocation(n);
+  
+  NODE_T vMin = T; 
 
-  // #ifdef ENABLE_GPU
-  // void buildConfGraphGpu(ClqPart::JsonGraph &jsongraph);
-  // #endif
-  // void buildConfGraph( ClqPart::JsonGraph &);
-  // void confColor();
-  // void confColorGreedy();
-  // void naiveGreedyColor(std::vector<NODE_T> vertList, ClqPart::JsonGraph &jsongraph,NODE_T offset);
-  // void confColorRand();
-  // void orderConfVertices();
+  std::mt19937 engine(2034587);
+  std::uniform_int_distribution<NODE_T> uniform_dist(0, colThreshold-1);
+
+  //# of verties processed. For stopping condition later
+  NODE_T vtxProcessed = 0;
+  for(NODE_T i:nodeList) {
+    //if this is a non-conflicting vertex we can color it arbitrarily from the 
+    //list of colors.
+    if(confAdjList[i].empty() == true) {
+      //std::cout<<"coloring non-conflicting edge"<<std::endl;
+      uniform_dist = std::uniform_int_distribution<NODE_T>(0, 
+          colList[i].size()-1);
+      colors[i] = colList[i][uniform_dist(engine)];
+      vtxProcessed++;
+      continue;
+    }
+    //otherwise place it in appropriate bucket
+    NODE_T t = colList[i].size();
+    verBucket[t-1].push_back(i); 
+    verLocation[i] = verBucket[t-1].size()-1;
+    
+    //the minimum bucket length
+    if(t < vMin) {
+      vMin = t; 
+    }
+  }
+ 
+  //keep processing until we see all the vertices. 
+  while (vtxProcessed < nodeList.size()) {
+    for(NODE_T i = vMin-1; i < T;i++) {
+      //if this bucket has elements
+      //select a random vertex and swap it with the last element
+      //to efficiently remove this vertex from the bucket.
+      //std::cout<<"Bucket: "<<i<<"size: "<<verBucket[i].size()<<std::endl;
+      if(verBucket[i].empty() == false) {
+        uniform_dist = std::uniform_int_distribution<NODE_T>(0, 
+            verBucket[i].size()-1);
+        NODE_T selectedVtxLoc = uniform_dist(engine);
+        NODE_T selectedVtx = verBucket[i].at(selectedVtxLoc);
+
+        //update the verLocation array of the last element
+        verLocation[verBucket[i].back()] = selectedVtxLoc;
+        
+        //swap the vertex with the last element
+        std::swap(verBucket[i][selectedVtxLoc],verBucket[i].back());
+        //remove the vertex
+        verBucket[i].pop_back();
+
+        //attempt to color this vertex
+        NODE_T colInd = attemptToColor(selectedVtx);
+        if(colInd>=0) {
+          //remove col at colInd of the vtx is not necessary
+          //std::swap(colList[selectedVtx][colInd],colList[selectedVtx].back());
+          //colList[selectedVtx].pop_back();
+
+          fixBuckets(selectedVtx,colors[selectedVtx],vtxProcessed,verBucket,verLocation,vMin); 
+          //std::cout<<"updated VMin: "<<vMin<<std::endl;
+        }
+        else {
+          colors[selectedVtx] = -2;
+          invalidVertices.push_back(selectedVtx); 
+        }
+        vtxProcessed++;
+        break;
+      } 
+    }
+  }
+ // std::cout<<"# of invalid vertices: "<<invalidVertices.size()
+   // <<std::endl;
+
+ /* 
+  NODE_T invalid = 0;
+  for(NODE_T i=0;i<n;i++) {
+    if(colors[i] == -2)
+     invalid++; 
+  }
+  std::cout<<invalid<<std::endl;
+  */
+
+  palStat[level].confColorTime = omp_get_wtime() - t1;
+  
+  //std::cout<<"Conflict Coloring Time: "<<confColorTime<<std::endl;
+
+  nColors = *std::max_element(colors.begin(),colors.end()) + 1;
+
+}
+
+//initialize for the recursive implementation. 
+  void reInit(std::vector<NODE_T> & nodeList,NODE_T colThresh, float alpha=1, NODE_T lst_sz = -1) {
+    colThreshold = colThresh; 
+    nConflicts = 0;
+    //The nodes in the node List need to have color -1.
+    for(auto u:nodeList) {
+      colors[u] = -1; 
+      colList[u].clear();
+      confAdjList[u].clear();
+    }
+    if(lst_sz < 0)
+      T =  static_cast<NODE_T> (alpha*log(nodeList.size()));
+    else
+      T = lst_sz;
+
+    if(T>colThresh)
+      T = colThresh;
+    invalidVertices.clear();
+
+    palStat.push_back({nodeList.size(),-1,-1,colThreshold,T,0,0.0,0.0,0.0});
+    level = level + 1;
+    assignListColor(nodeList,getNumColors());
+  }
+  
+  template<typename PauliTy = std::string>
+  bool checkValidity( ClqPart::JsonGraph &jsongraph) {
+  for(NODE_T eu =0; eu < n-1; eu++) {
+    for(NODE_T ev = eu+1; ev < n; ev++) {
+
+      if(jsongraph.is_an_edge<PauliTy>(eu,ev) == false) {
+        if((colors[eu] >  -1 && colors[ev] > -1) && (colors[eu] == colors[ev])) 
+          return false;
+      }
+    }
+  }
+  return true;
+}
 
   std::vector< std::vector<NODE_T> >& getConfAdjList() { return confAdjList; }
-  std::vector<NODE_T>& getConfVertices() { return confVertices; }
+  //std::vector<NODE_T>& getConfVertices() { return confVertices; }
   std::vector<NODE_T>& getInvVertices() { return invalidVertices; }
   std::vector<NODE_T> getColors() { return colors; }
   NODE_T getNumColors() {return nColors;}
+  EDGE_T getNumConflicts() {return nConflicts;}
+  PalColStat getPalStat(int lev=0) {return palStat[lev];}
 
 private:
-  //This function assign random list of colors from the Palette.
+//This function assign random list of colors from the Palette.
 void assignListColor() {
 
   std::mt19937 engine(2034587);
@@ -687,8 +958,8 @@ void assignListColor() {
   //same for each vertex
   std::vector<bool> isPresent(colThreshold);
 
-  std::cout<<"Assigning random list color " << "Palette Size: "<<colThreshold
-            <<" "<<"List size: "<<T<<std::endl;
+  // std::cout<<"Assigning random list color " << "Palette Size: "<<colThreshold
+  //           <<" "<<"List size: "<<T<<std::endl;
   
   double t1 = omp_get_wtime();
   #ifdef ENABLE_GPU
@@ -716,10 +987,56 @@ void assignListColor() {
   ERR_CHK(cudaMalloc(&d_colList, h_colList.size() * sizeof(NODE_T)));
   ERR_CHK(cudaMemcpy(d_colList, h_colList.data(), h_colList.size() * sizeof(NODE_T), cudaMemcpyHostToDevice));
   #endif // ENABLE_GPU
-  assignTime = omp_get_wtime() - t1;
-  std::cout<<"Assignment Time: "<<assignTime<<std::endl;
+  palStat[level].assignTime = omp_get_wtime() - t1;
+  // std::cout<<"Assignment Time: "<<assignTime<<std::endl;
 
 }
+
+//overloaded function to work with subset of nodes
+void assignListColor(std::vector<NODE_T> &nodeList,NODE_T offset) {
+
+  std::mt19937 engine(2034587);
+  std::uniform_int_distribution<NODE_T> uniform_dist(offset, offset+colThreshold-1);
+  
+  //We want the colors to be not repeating. Thus initially the list size is
+  //same for each vertex
+  std::vector<bool> isPresent(colThreshold);
+
+  //std::cout<<"Assigning random list color " << "Palette Size: "<<colThreshold
+   //         <<" "<<"List size: "<<T<<std::endl;
+  
+  double t1 = omp_get_wtime();
+  #ifdef ENABLE_GPU
+  h_colList.reserve(n * T);
+  #endif // ENABLE_GPU
+  for (NODE_T i:nodeList) {
+    std::fill(isPresent.begin(),isPresent.end(),false);
+    //clear the colList since it may contain color from previous recursive level. 
+    colList[i].clear();
+    for (NODE_T j=0; j<T ; j++) {
+      NODE_T col;
+      do {
+        col = uniform_dist(engine);
+      }while(isPresent[col-offset] == true);
+
+      colList[i].push_back(col); 
+      isPresent[col-offset] = true;
+    } 
+    std::sort(colList[i].begin(),colList[i].end());
+    #ifdef ENABLE_GPU
+    h_colList.insert(h_colList.end(), colList[i].begin(), colList[i].end());
+    #endif
+  }
+  #ifdef ENABLE_GPU
+  // Copy h_colList to GPU
+  cudaError_t err;
+  ERR_CHK(cudaMalloc(&d_colList, h_colList.size() * sizeof(NODE_T)));
+  ERR_CHK(cudaMemcpy(d_colList, h_colList.data(), h_colList.size() * sizeof(NODE_T), cudaMemcpyHostToDevice));
+  #endif // ENABLE_GPU
+  palStat[level].assignTime = omp_get_wtime() - t1;
+  //std::cout<<"Assignment Time: "<<assignTime<<std::endl;
+}
+
   /********************************************************************************
 //The next three functions are not necessary at this moment. They are used to color
 //the invalid vertices. But since we do not know the subgraph induced by the invalid
@@ -804,5 +1121,4 @@ void fixBuckets(NODE_T vtx, NODE_T col, NODE_T &vtxProcessed,
 
   
 }
-
 };

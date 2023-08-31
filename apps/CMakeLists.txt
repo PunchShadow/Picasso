@@ -53,6 +53,11 @@ target_link_libraries(palcolGm PUBLIC ClqPartGpu)
 target_compile_definitions(palcolGm PUBLIC ENABLE_GPU)
 set_target_properties(palcolGm PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
+add_executable(palcolR appPalColRecDir.cc)
+target_include_directories(palcolR PUBLIC "${PROJECT_SOURCE_DIR}/include") 
+target_link_libraries(palcolR PUBLIC ClqPart)
+target_compile_options(palcolR PRIVATE -O3 )
+
 add_executable(naiveCol appNaiveColDir.cc)
 target_include_directories(naiveCol PUBLIC "${PROJECT_SOURCE_DIR}/include") 
 target_link_libraries(naiveCol PUBLIC ClqPart)

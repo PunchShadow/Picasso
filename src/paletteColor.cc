@@ -38,7 +38,3 @@ bool findFirstCommonElement(const std::vector<NODE_T>& vec1, const std::vector<N
 
     return false; // No common element found
 }
-
-
-
-

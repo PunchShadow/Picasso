@@ -219,6 +219,7 @@ namespace ClqPart {
       decltype(dataEnc)& getEncodedData() {return dataEnc;}
       size_t getPauliLength() {return data.begin().key().size();}
       size_t getPauliEncSize() {return pauliEncSize;}
+      void resetNumEdge() {numEdgeCom=0;}
       void printData();
 
     protected:
