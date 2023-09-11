@@ -264,13 +264,16 @@ void buildConfGraphGpuMemConscious (ClqPart::JsonGraph &jsongraph) {
     NODE_T *d_confCsr = d_confVertices + nConflicts*2;
     buildCsrConfGraphDevice(n, d_confOffsets, d_confOffsetsCnt, d_confVertices, d_confCsr, nConflicts);
     ERR_CHK(cudaDeviceSynchronize());
+    // double t2 = omp_get_wtime();
     // Read d_confCsr from GPU
     ERR_CHK(cudaMemcpy(h_confOffsets.data(), d_confOffsets, h_confOffsets.size() * sizeof(OffsetTy), cudaMemcpyDeviceToHost));
     ERR_CHK(cudaMemcpy(h_confVertices.data(), d_confCsr, h_confVertices.size() * sizeof(NODE_T), cudaMemcpyDeviceToHost));
     ERR_CHK(cudaDeviceSynchronize());
+    // std:: cout << "Copy time: " << omp_get_wtime() - t2 << std::endl;
     // std::cout << h_confVertices[0] << " " << h_confVertices[nConflicts*2-1] << std::endl;
   }
   else{
+    std::cout << "Doesn't fit: " << nConflicts * 2 * sizeof(NODE_T) << " > " << allocMem/2 << std::endl;
     // Too Large for GPU memory, use CPU to post-process
     ERR_CHK(cudaMemcpy(h_confOffsets.data(), d_confOffsets, h_confOffsets.size() * sizeof(OffsetTy), cudaMemcpyDeviceToHost));
     std::vector<Edge> h_cooVerticesTmp(nConflicts);
@@ -280,15 +283,16 @@ void buildConfGraphGpuMemConscious (ClqPart::JsonGraph &jsongraph) {
       std::atomic_init(&h_confOffsetsTmp[i], 0);
     }
     #pragma omp parallel for
-    for(NODE_T i = 0; i < nConflicts; i++){
+    for(OffsetTy i = 0; i < nConflicts; i++){
       Edge e = h_cooVerticesTmp[i];
-      OffsetTy offset = h_confOffsets[e.u] + std::atomic_fetch_add(&h_confOffsetsTmp[e.u], 1);
+      OffsetTy offset = h_confOffsets[e.u] + std::atomic_fetch_add(&h_confOffsetsTmp[e.u], (OffsetTy)1);
       h_confVertices[offset] = e.v;
-      offset = h_confOffsets[e.v] + std::atomic_fetch_add(&h_confOffsetsTmp[e.v], 1);
+      offset = h_confOffsets[e.v] + std::atomic_fetch_add(&h_confOffsetsTmp[e.v], (OffsetTy)1);
       h_confVertices[offset] = e.u;
     }
   }
   ERR_CHK(cudaFree(d_confOffsetsCnt));
+  ERR_CHK(cudaDeviceSynchronize());
   // std::cout << "nConflicts: " << nConflicts << std::endl;
   #pragma omp parallel for
   for(NODE_T i = 0; i < n; i++) {
@@ -310,7 +314,7 @@ void buildConfGraphGpuMemConscious (ClqPart::JsonGraph &jsongraph) {
   NODE_T maxDegree = 0;
   double avgDegree = 0;
   for(NODE_T i = 0; i < n; i++) {
-    NODE_T degree = h_confOffsets[i];
+    OffsetTy degree = h_confOffsets[i];
     if(degree < minDegree) {
       minDegree = degree;
     }
@@ -323,7 +327,7 @@ void buildConfGraphGpuMemConscious (ClqPart::JsonGraph &jsongraph) {
   // Calculate variance
   double variance = 0;
   for(NODE_T i = 0; i < n; i++) {
-    NODE_T degree = h_confOffsets[i];
+    OffsetTy degree = h_confOffsets[i];
     variance += (degree - avgDegree) * (degree - avgDegree);
   }
   variance /= n;
@@ -386,10 +390,12 @@ void buildConfGraphGpuMemConscious (ClqPart::JsonGraph &jsongraph, std::vector<N
     NODE_T *d_confCsr = d_confVertices + nConflicts*2;
     buildCsrConfGraphDevice(n, d_confOffsets, d_confOffsetsCnt, d_confVertices, d_confCsr, nConflicts);
     ERR_CHK(cudaDeviceSynchronize());
+    double t2 = omp_get_wtime();
     // Read d_confCsr from GPU
     ERR_CHK(cudaMemcpy(h_confOffsets.data(), d_confOffsets, h_confOffsets.size() * sizeof(OffsetTy), cudaMemcpyDeviceToHost));
     ERR_CHK(cudaMemcpy(h_confVertices.data(), d_confCsr, h_confVertices.size() * sizeof(NODE_T), cudaMemcpyDeviceToHost));
     ERR_CHK(cudaDeviceSynchronize());
+    std:: cout << "Copy time: " << omp_get_wtime() - t2 << std::endl;
     // std::cout << h_confVertices[0] << " " << h_confVertices[nConflicts*2-1] << std::endl;
   }
   else{
@@ -548,6 +554,7 @@ void confColorGreedyCSR() {
   }
  
   //keep processing until we see all the vertices. 
+  // double buckets_time = 0.0;
   while (vtxProcessed < n) {
     for(NODE_T i = vMin-1; i < T;i++) {
       //if this bucket has elements
@@ -574,8 +581,9 @@ void confColorGreedyCSR() {
           //remove col at colInd of the vtx is not necessary
           //std::swap(colList[selectedVtx][colInd],colList[selectedVtx].back());
           //colList[selectedVtx].pop_back();
-
+          // double bucket_time = omp_get_wtime();
           fixBucketsCSR(selectedVtx,colors[selectedVtx],vtxProcessed,verBucket,verLocation,vMin); 
+          // buckets_time += omp_get_wtime() - bucket_time;
           //std::cout<<"updated VMin: "<<vMin<<std::endl;
         }
         else {
@@ -587,6 +595,9 @@ void confColorGreedyCSR() {
       } 
     }
   }
+  // std::cout << "Buckets time: " << buckets_time << std::endl;
+  // std::cout << "Mem access time: " << mem_access_time << std::endl;
+  // std::cout << "Sacrificial counter: " << sacrificial_counter << std::endl;
   // std::cout<<"# of invalid vertices: "<<invalidVertices.size()
   //   <<std::endl;
 
@@ -646,6 +657,7 @@ void confColorGreedyCSR(std::vector<NODE_T> &nodeList) {
   }
  
   //keep processing until we see all the vertices. 
+  // double buckets_time = 0.0;
   while (vtxProcessed < nodeList.size()) {
     for(NODE_T i = vMin-1; i < T;i++) {
       //if this bucket has elements
@@ -672,8 +684,9 @@ void confColorGreedyCSR(std::vector<NODE_T> &nodeList) {
           //remove col at colInd of the vtx is not necessary
           //std::swap(colList[selectedVtx][colInd],colList[selectedVtx].back());
           //colList[selectedVtx].pop_back();
-
+          // double bucket_time = omp_get_wtime();
           fixBucketsCSR(selectedVtx,colors[selectedVtx],vtxProcessed,verBucket,verLocation,vMin); 
+          // buckets_time += omp_get_wtime() - bucket_time;
           //std::cout<<"updated VMin: "<<vMin<<std::endl;
         }
         else {
@@ -685,6 +698,7 @@ void confColorGreedyCSR(std::vector<NODE_T> &nodeList) {
       } 
     }
   }
+  // std::cout << "Buckets time: " << buckets_time << std::endl;
   // std::cout<<"# of invalid vertices: "<<invalidVertices.size()
   //   <<std::endl;
 
@@ -704,6 +718,9 @@ void confColorGreedyCSR(std::vector<NODE_T> &nodeList) {
   nColors = *std::max_element(colors.begin(),colors.end()) + 1;
 
 }
+
+// double mem_access_time = 0;
+// NODE_T sacrificial_counter = 0;
 
 void fixBucketsCSR(NODE_T vtx, NODE_T col, NODE_T &vtxProcessed, 
     std::vector< std::vector<NODE_T> > &verBucket, std::vector<NODE_T> &verLoc, NODE_T &vMin) {
@@ -738,7 +755,7 @@ void fixBucketsCSR(NODE_T vtx, NODE_T col, NODE_T &vtxProcessed,
       }
       
     }
-  } 
+  }
 
   
 }
@@ -835,7 +852,8 @@ void confColorGreedy() {
     }
   }
  
-  //keep processing until we see all the vertices. 
+  //keep processing until we see all the vertices.
+  // double buckets_time = 0.0;
   while (vtxProcessed < n) {
     for(NODE_T i = vMin-1; i < T;i++) {
       //if this bucket has elements
@@ -863,7 +881,9 @@ void confColorGreedy() {
           //std::swap(colList[selectedVtx][colInd],colList[selectedVtx].back());
           //colList[selectedVtx].pop_back();
 
+          // double bucket_time = omp_get_wtime();
           fixBuckets(selectedVtx,colors[selectedVtx],vtxProcessed,verBucket,verLocation,vMin); 
+          // buckets_time += omp_get_wtime() - bucket_time;
           //std::cout<<"updated VMin: "<<vMin<<std::endl;
         }
         else {
@@ -875,6 +895,7 @@ void confColorGreedy() {
       } 
     }
   }
+  // std::cout << "Buckets time: " << buckets_time << std::endl;
   // std::cout<<"# of invalid vertices: "<<invalidVertices.size()
   //   <<std::endl;
 
@@ -934,6 +955,7 @@ void confColorGreedy(std::vector<NODE_T> &nodeList) {
   }
  
   //keep processing until we see all the vertices. 
+  // double buckets_time = 0.0;
   while (vtxProcessed < nodeList.size()) {
     for(NODE_T i = vMin-1; i < T;i++) {
       //if this bucket has elements
@@ -961,7 +983,9 @@ void confColorGreedy(std::vector<NODE_T> &nodeList) {
           //std::swap(colList[selectedVtx][colInd],colList[selectedVtx].back());
           //colList[selectedVtx].pop_back();
 
+          // double bucket_time = omp_get_wtime();
           fixBuckets(selectedVtx,colors[selectedVtx],vtxProcessed,verBucket,verLocation,vMin); 
+          // buckets_time += omp_get_wtime() - bucket_time;
           //std::cout<<"updated VMin: "<<vMin<<std::endl;
         }
         else {
@@ -973,6 +997,7 @@ void confColorGreedy(std::vector<NODE_T> &nodeList) {
       } 
     }
   }
+  // std::cout << "Buckets time: " << buckets_time << std::endl;
  // std::cout<<"# of invalid vertices: "<<invalidVertices.size()
    // <<std::endl;
 
@@ -1227,8 +1252,6 @@ void fixBuckets(NODE_T vtx, NODE_T col, NODE_T &vtxProcessed,
       }
       
     }
-  } 
-
-  
+  }  
 }
 };
