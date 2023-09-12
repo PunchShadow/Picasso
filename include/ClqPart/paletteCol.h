@@ -215,7 +215,9 @@ void buildStreamConfGraph ( NODE_T eu, NODE_T ev) {
     confAdjList[eu].push_back(ev); 
     confAdjList[ev].push_back(eu); 
     nConflicts++;
+    palStat[level].mConf++;
   }
+
 
 }
 
@@ -889,7 +891,7 @@ void confColorGreedy() {
 
   palStat[level].confColorTime = omp_get_wtime() - t1;
   
-  // std::cout<<"Conflict Coloring Time: "<<confColorTime<<std::endl;
+  //std::cout<<"Conflict Coloring Time: "<<palStat[level].confColorTime<<std::endl;
 
   nColors = *std::max_element(colors.begin(),colors.end()) + 1;
 
