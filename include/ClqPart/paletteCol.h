@@ -750,27 +750,37 @@ void fixBucketsCSR(NODE_T vtx, NODE_T col, NODE_T &vtxProcessed,
 //The idea is to color the vertex with highest degree first, since this represents
 //the most conflicted with other vertices. Does not perform that well in practice.
 //We are not using it at the moment.
-void orderConfVertices() {
+void orderConfVerticesLF() {
    
   std::vector<NODE_T > degreeConf(n,0);
+  vertexOrder.resize(n);
 
   for(NODE_T i=0;i<n;i++) {
     degreeConf[i]= confAdjList[i].size(); 
   }
   std::iota(vertexOrder.begin(),vertexOrder.end(),0);
 
-  std::stable_sort(vertexOrder.begin(),vertexOrder.end(),
+  std::sort(vertexOrder.begin(),vertexOrder.end(),
       [&degreeConf] (NODE_T t1, NODE_T t2) {return degreeConf[t1] > degreeConf[t2];});
 
 
 }
 
+void orderConfVerticesRand() {
+
+  vertexOrder.resize(n);
+  std::iota(vertexOrder.begin(),vertexOrder.end(),0);
+  std::mt19937 engine(213857);
+  std::shuffle(vertexOrder.begin(),vertexOrder.end(),engine);
+}
+
 //This function attempt to color the conflicting graph with largest degree heuristics.
 //Does not perform well
-void confColor() {
+void confColorLF() {
   
-  std::cout<<"conflicting edges: "<<nConflicts<<std::endl; 
-  orderConfVertices();
+  //std::cout<<"conflicting edges: "<<nConflicts<<std::endl; 
+  double t1 = omp_get_wtime();
+  orderConfVerticesLF();
   for(NODE_T i:vertexOrder) {
     if(confAdjList[i].empty() == false) {
       for(auto col:colList[i]) {
@@ -787,15 +797,18 @@ void confColor() {
           break; 
         }
       }  
-      if(colors[i] == -1)
+      if(colors[i] == -1) {
         invalidVertices.push_back(i);
+        colors[i] = -2;
+      }
     } 
     else
       colors[i] = colList[i][0];
     //std::cout<<i<<" "<<colors[i]<<std::endl;
   }
-  std::cout<<"# of vertices can not be colored: "<<invalidVertices.size()
-    <<std::endl;
+  palStat[level].confColorTime = omp_get_wtime() - t1;
+  //std::cout<<"# of vertices can not be colored: "<<invalidVertices.size()
+   // <<std::endl;
   nColors = *std::max_element(colors.begin(),colors.end()) + 1;
 }
 

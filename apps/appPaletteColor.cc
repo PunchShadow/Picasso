@@ -104,7 +104,8 @@ int main(int argC, char *argV[]) {
 
 
   std::vector< std::vector<NODE_T> > confEdges = palcol.getConfAdjList();
-  palcol.confColorGreedy();
+  //palcol.confColorGreedy();
+  palcol.confColorLF();
 
   PalColStat palStat = palcol.getPalStat(); 
   palStat.m = G.numberOfEdges();

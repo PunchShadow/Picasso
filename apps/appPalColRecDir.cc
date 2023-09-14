@@ -107,6 +107,7 @@ int main(int argC, char *argV[]) {
 
   //std::vector< std::vector<NODE_T> > confEdges = palcol.getConfAdjList();
   palcol.confColorGreedy();
+  //palcol.confColorLF();
   //std::vector<NODE_T> colors = palcol.getColors();
   
   std::vector <NODE_T>  invVert = palcol.getInvVertices();
