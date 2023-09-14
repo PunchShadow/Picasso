@@ -26,6 +26,23 @@
 #include "cxxopts/cxxopts.hpp"
 #include "ClqPart/utility.h"
 
+void printStat( int level, PalColStat &palStat) {
+  
+  std::cout<<"***********Level "<<level<<"*******"<<std::endl;
+  std::cout<<"Num Nodes: "<<palStat.n<<"\n";
+  std::cout<<"Num Edges: "<<palStat.m<<"\n";
+  std::cout<<"Avg. Deg.: "<<(double) 2*palStat.m/palStat.n<<"\n";
+  std::cout<<"Palette Size: "<<palStat.palSz<<"\n";
+  std::cout<<"List Size: "<<palStat.lstSz<<"\n";
+  std::cout<<"Num Conflict Edges: "<<palStat.mConf<<"\n";
+  std::cout<<"Conflict to Edge (%): "<<(double)palStat.mConf/palStat.m*100<<"\n";
+  std::cout<<"Num Colors: " <<palStat.nColors<<std::endl;
+  std::cout<<"Assign Time: "<<palStat.assignTime<<"\n";
+  std::cout<<"Conf. Build Time: "<<palStat.confBuildTime<<"\n";
+  std::cout<<"Conf. Color Time: "<<palStat.confColorTime<<"\n";
+  std::cout<<"\n";
+
+}
 
 int main(int argC, char *argV[]) {
   
@@ -35,12 +52,14 @@ int main(int argC, char *argV[]) {
     ("t,target", "target color", cxxopts::value<NODE_T>())
     ("a,alpha", "coefficient to log(n)", cxxopts::value<float>()->default_value("1.0"))
     ("l,list", "list size ", cxxopts::value<NODE_T>()->default_value("-1"))
+    ("c,check", "check validity of coloring", cxxopts::value<bool>()->default_value("false"))
     ("h,help", "print usage")
     ;
 
   std::string inFname;
   NODE_T target,list_size;
   float alpha;
+  bool isValid;
   try{
     auto result = options.parse(argC,argV);
     if (result.count("help")) {
@@ -50,6 +69,7 @@ int main(int argC, char *argV[]) {
     inFname = result["infile"].as<std::string>();
     target = result["target"].as<NODE_T>();
     alpha = result["alpha"].as<float>();
+    isValid = result["check"].as<bool>();
     list_size = result["list"].as<NODE_T>();
   }
   catch(cxxopts::exceptions::exception &exp) {
@@ -61,11 +81,11 @@ int main(int argC, char *argV[]) {
   Input input(inFname);
   input.readMtx(inFname,G);
   NODE_T n = G.numberOfNodes();
-  std::cout<<"graph reading complete"<<std::endl;
-  std::cout<<"n: "<< n <<" m: "<<G.numberOfEdges()<<std::endl;
+  //std::cout<<"graph reading complete"<<std::endl;
+  //std::cout<<"n: "<< n <<" m: "<<G.numberOfEdges()<<std::endl;
   
   std::pair<NODE_T, NODE_T> maxD = getMaxDegreeNode(G);
-  std::cout<<"Maximum Degree: "<<maxD.second<<std::endl;
+  //std::cout<<"Maximum Degree: "<<maxD.second<<std::endl;
   if(list_size >=0)
     std::cout<<"Since list size is given, ignoring alpha"<<std::endl;
   PaletteColor palcol(n,target,alpha,list_size);
@@ -80,13 +100,27 @@ int main(int argC, char *argV[]) {
     } 
   }  
   double createConfTime = omp_get_wtime() - t1;
-  std::cout<<"Conflict graph construction time: "<<createConfTime<<std::endl;
+  //std::cout<<"Conflict graph construction time: "<<createConfTime<<std::endl;
+
 
   std::vector< std::vector<NODE_T> > confEdges = palcol.getConfAdjList();
-  palcol.confColorGreedy();
-  std::vector<NODE_T> colors = palcol.getColors();
+  //palcol.confColorGreedy();
+  palcol.confColorLF();
 
-  std::cout<<"# of colors: " <<palcol.getNumColors()<<std::endl;
-  std::cout<<"valid coloring?: "<<isValidColoring(G,colors)<<std::endl;
+  PalColStat palStat = palcol.getPalStat(); 
+  palStat.m = G.numberOfEdges();
+  palStat.confBuildTime = createConfTime;
+  std::vector<NODE_T> colors = palcol.getColors();
+  palStat.nColors = palcol.getNumColors(); 
+  std::vector <NODE_T>  invVert = palcol.getInvVertices();
+  printStat(0,palStat);
+  std::cout<<"# of Invalid Vertices: "<<invVert.size()<<"\n";
+  //std::cout<<"# of colors: " <<palcol.getNumColors()<<std::endl;
+  if(isValid) {
+    if(isValidColoring(G,colors))
+      std::cout<<"Coloring valid"<<std::endl;
+    else
+      std::cout<<"Coloring invalid"<<std::endl;
+  }
   return 0;
 }  
