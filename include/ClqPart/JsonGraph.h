@@ -220,6 +220,7 @@ namespace ClqPart {
       size_t getPauliLength() {return data.begin().key().size();}
       size_t getPauliEncSize() {return pauliEncSize;}
       void resetNumEdge() {numEdgeCom=0;}
+      json createColGroup(std::vector<NODE_T> &, NODE_T); 
       void printData();
 
     protected:

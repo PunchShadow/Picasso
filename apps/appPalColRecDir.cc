@@ -51,6 +51,7 @@ int main(int argC, char *argV[]) {
   cxxopts::Options options("palettecol", "read json pauli string files and color the graph using palette coloring algorithm"); 
   options.add_options()
     ("in,infile", "json file containing the pauli strings", cxxopts::value<std::string>())
+    ("out,outfile", "json file containing the groups after coloring", cxxopts::value<std::string>()->default_value(""))
     ("t,target", "palette size", cxxopts::value<NODE_T>())
     ("a,alpha", "coefficient to log(n) for list size", cxxopts::value<float>()->default_value("1.0"))
     //("s,stream", "use streaming construction", cxxopts::value<bool>()->default_value("false"))
@@ -60,7 +61,7 @@ int main(int argC, char *argV[]) {
     ("h,help", "print usage")
     ;
 
-  std::string inFname;
+  std::string inFname,outFname;
   NODE_T target,list_size;
   float alpha;
   bool isValid,isRec;
@@ -71,6 +72,7 @@ int main(int argC, char *argV[]) {
           std::exit(0);
     }
     inFname = result["infile"].as<std::string>();
+    outFname = result["outfile"].as<std::string>();
     target = result["target"].as<NODE_T>();
     alpha = result["alpha"].as<float>();
     //isStream = result["stream"].as<bool>();
@@ -82,6 +84,7 @@ int main(int argC, char *argV[]) {
     std::cout<<options.help()<<std::endl;
     exit(1);
   }
+  std::cout<<outFname<<std::endl;
 
   ClqPart::JsonGraph jsongraph(inFname); 
   NODE_T n = jsongraph.numOfData();
@@ -153,6 +156,20 @@ int main(int argC, char *argV[]) {
     else
       std::cout<<"Coloring invalid"<<std::endl;
   }
+
+  if(outFname.empty() == false) {
+    std::vector<NODE_T> cols = palcol.getColors();
+    json jsonGrp = jsongraph.createColGroup(cols, palcol.getNumColors()); 
+    std::string jsonString = jsonGrp.dump(4);
+    std::ofstream outFile(outFname);
+    if(outFile.is_open()) {
+      outFile << jsonString;
+      outFile.close();
+    } else {
+      std::cerr<< outFname<<" can not be opened" <<std::endl; 
+    }
+  }
+  
 
   return 0;
 }  

@@ -334,4 +334,30 @@ namespace ClqPart {
     myfile<<n<<" "<<n<<" "<<m<<std::endl;
     generateTime = omp_get_wtime() - t1;
   }
+
+
+  json JsonGraph::createColGroup(std::vector<NODE_T> &colors, NODE_T nColors) {
+
+    NODE_T n1 = colors.size();
+    /*
+    std::vector< std::vector<std::pair<std::string,std::string> > > dict(nColors);
+
+    for(auto u = 0; u<n1; u++) {
+      dict[colors[u]].push_back(std::make_pair(dataAr[u][0],dataAr[u][1])); 
+    }
+
+    */
+    json jsonGrp;
+
+    /*
+    for(auto c=0;c<nColors;c++) {
+      jsonGrp[c] = dict[c]; 
+    }
+    */
+    for(auto u = 0; u<n1; u++) {
+      jsonGrp[std::to_string(colors[u])]["paulis"].push_back(dataAr[u][0]);
+      jsonGrp[std::to_string(colors[u])]["coeffs"].push_back(dataAr[u][1]);
+    }
+    return jsonGrp;
+  }
 }
