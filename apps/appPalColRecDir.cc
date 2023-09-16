@@ -58,10 +58,12 @@ int main(int argC, char *argV[]) {
     ("l,list", "use explicit list size", cxxopts::value<NODE_T>()->default_value("-1"))
     ("c,check", "check validity of coloring", cxxopts::value<bool>()->default_value("false"))
     ("r,recurse", "use recursive coloring", cxxopts::value<bool>()->default_value("false"))
+    ("s,seed", "use seed", cxxopts::value<int>()->default_value("123"))
     ("h,help", "print usage")
     ;
 
   std::string inFname,outFname;
+  int seed;
   NODE_T target,list_size;
   float alpha;
   bool isValid,isRec;
@@ -74,6 +76,7 @@ int main(int argC, char *argV[]) {
     inFname = result["infile"].as<std::string>();
     outFname = result["outfile"].as<std::string>();
     target = result["target"].as<NODE_T>();
+    seed = result["seed"].as<int>();
     alpha = result["alpha"].as<float>();
     //isStream = result["stream"].as<bool>();
     isValid = result["check"].as<bool>();
@@ -90,7 +93,7 @@ int main(int argC, char *argV[]) {
   NODE_T n = jsongraph.numOfData();
   if(list_size >=0)
     std::cout<<"Since list size is given, ignoring alpha"<<std::endl;
-  PaletteColor palcol(n,target,alpha,list_size);
+  PaletteColor palcol(n,target,alpha,list_size,seed);
   
   int level = 0;
   //level 0 

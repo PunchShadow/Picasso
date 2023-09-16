@@ -68,6 +68,7 @@ class PaletteColor {
   NODE_T n;
   NODE_T colThreshold;
   NODE_T T;
+  int seed;
   std::vector<std::vector<NODE_T> > colList;
   std::vector<NODE_T> colors;
   NODE_T nColors;
@@ -94,7 +95,7 @@ class PaletteColor {
   std::vector<PalColStat> palStat;
 
 public:
-  PaletteColor( NODE_T n1, NODE_T colThresh, float alpha=1, NODE_T lst_sz = -1) {
+  PaletteColor( NODE_T n1, NODE_T colThresh, float alpha=1, NODE_T lst_sz = -1, int my_seed=123) {
     n = n1;
     colThreshold = colThresh; 
     colors.resize(n,-1);
@@ -113,6 +114,7 @@ public:
     invalidVertices.clear();
     palStat.push_back({n,-1,-1,colThreshold,T,0,0.0,0.0,0.0,0.0});
     level = 0;
+    seed = my_seed;
     assignListColor();
   }
 
@@ -528,7 +530,7 @@ void confColorGreedyCSR() {
   
   NODE_T vMin = T; 
 
-  std::mt19937 engine(2034587);
+  std::mt19937 engine(seed);
   std::uniform_int_distribution<NODE_T> uniform_dist(0, colThreshold-1);
 
   //# of verties processed. For stopping condition later
@@ -631,7 +633,7 @@ void confColorGreedyCSR(std::vector<NODE_T> &nodeList) {
   
   NODE_T vMin = T; 
 
-  std::mt19937 engine(2034587);
+  std::mt19937 engine(seed);
   std::uniform_int_distribution<NODE_T> uniform_dist(0, colThreshold-1);
 
   //# of verties processed. For stopping condition later
@@ -787,7 +789,7 @@ void orderConfVerticesRand() {
 
   vertexOrder.resize(n);
   std::iota(vertexOrder.begin(),vertexOrder.end(),0);
-  std::mt19937 engine(213857);
+  std::mt19937 engine(seed);
   std::shuffle(vertexOrder.begin(),vertexOrder.end(),engine);
 }
 
@@ -840,7 +842,7 @@ void confColorGreedy() {
   
   NODE_T vMin = T; 
 
-  std::mt19937 engine(2034587);
+  std::mt19937 engine(seed);
   std::uniform_int_distribution<NODE_T> uniform_dist(0, colThreshold-1);
 
   //# of verties processed. For stopping condition later
@@ -942,7 +944,7 @@ void confColorGreedy(std::vector<NODE_T> &nodeList) {
   
   NODE_T vMin = T; 
 
-  std::mt19937 engine(2034587);
+  std::mt19937 engine(seed);
   std::uniform_int_distribution<NODE_T> uniform_dist(0, colThreshold-1);
 
   //# of verties processed. For stopping condition later
@@ -1102,7 +1104,7 @@ private:
 //This function assign random list of colors from the Palette.
 void assignListColor() {
 
-  std::mt19937 engine(2034587);
+  std::mt19937 engine(seed);
   std::uniform_int_distribution<NODE_T> uniform_dist(0, colThreshold-1);
   
   //We want the colors to be not repeating. Thus initially the list size is
@@ -1146,7 +1148,7 @@ void assignListColor() {
 //overloaded function to work with subset of nodes
 void assignListColor(std::vector<NODE_T> &nodeList,NODE_T offset) {
 
-  std::mt19937 engine(2034587);
+  std::mt19937 engine(seed);
   std::uniform_int_distribution<NODE_T> uniform_dist(offset, offset+colThreshold-1);
   
   //We want the colors to be not repeating. Thus initially the list size is
@@ -1223,7 +1225,7 @@ void greedyColor(NODE_T offset) {
 //the coloring is guaranteed but I first name it attempt. kept in this way.
 NODE_T attemptToColor(NODE_T vtx) {
 
-  std::mt19937 engine(213857);
+  std::mt19937 engine(seed);
   std::uniform_int_distribution<NODE_T> uniform_dist(0,colList[vtx].size()-1);
 
   auto colInd = uniform_dist(engine);
