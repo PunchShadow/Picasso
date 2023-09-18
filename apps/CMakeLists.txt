@@ -61,6 +61,11 @@ target_include_directories(palcolR PUBLIC "${PROJECT_SOURCE_DIR}/include")
 target_link_libraries(palcolR PUBLIC ClqPart)
 target_compile_options(palcolR PRIVATE -O3 )
 
+add_executable(palcolEr appPalColEncRecDir.cc)
+target_include_directories(palcolEr PUBLIC "${PROJECT_SOURCE_DIR}/include") 
+target_link_libraries(palcolEr PUBLIC ClqPart)
+target_compile_options(palcolEr PRIVATE -O3 )
+
 add_executable(palcolGr appPalColGpuMemRec.cc)
 target_include_directories(palcolGr PUBLIC "${PROJECT_SOURCE_DIR}/include")
 target_link_libraries(palcolGr PUBLIC ClqPartGpu)
