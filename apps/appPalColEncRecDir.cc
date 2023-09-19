@@ -52,7 +52,7 @@ int main(int argC, char *argV[]) {
   options.add_options()
     ("in,infile", "json file containing the pauli strings", cxxopts::value<std::string>())
     ("out,outfile", "json file containing the groups after coloring", cxxopts::value<std::string>()->default_value(""))
-    ("t,target", "palette size", cxxopts::value<NODE_T>())
+    ("t,target", "palette size", cxxopts::value<double>())
     ("a,alpha", "coefficient to log(n) for list size", cxxopts::value<float>()->default_value("1.0"))
     //("s,stream", "use streaming construction", cxxopts::value<bool>()->default_value("false"))
     ("l,list", "use explicit list size", cxxopts::value<NODE_T>()->default_value("-1"))
@@ -64,6 +64,7 @@ int main(int argC, char *argV[]) {
 
   std::string inFname,outFname;
   int seed;
+  double target1;
   NODE_T target,list_size;
   float alpha;
   bool isValid,isRec;
@@ -75,7 +76,7 @@ int main(int argC, char *argV[]) {
     }
     inFname = result["infile"].as<std::string>();
     outFname = result["outfile"].as<std::string>();
-    target = result["target"].as<NODE_T>();
+    target1 = result["target"].as<double>();
     alpha = result["alpha"].as<float>();
     seed = result["seed"].as<int>();
     //isStream = result["stream"].as<bool>();
@@ -91,6 +92,17 @@ int main(int argC, char *argV[]) {
 
   ClqPart::JsonGraph jsongraph(inFname, false, true); 
   NODE_T n = jsongraph.numOfData();
+
+  double nextFrac;
+  if(target1 < 1) {
+    std::cout<<"Using target as node percentage"<<std::endl; 
+    target = NODE_T(n*target1);
+    nextFrac = target1;
+  }
+  else {
+    target = NODE_T(target1); 
+    nextFrac = 1.0/8.0;
+  }
   if(list_size >=0)
     std::cout<<"Since list size is given, ignoring alpha"<<std::endl;
   PaletteColor palcol(n,target,alpha,list_size,seed);
@@ -122,7 +134,7 @@ int main(int argC, char *argV[]) {
   //palStat.mConf = palcol.getNumConflicts();
   palStat.nColors = palcol.getNumColors(); 
   printStat(level,palStat);
-
+  
   if (isRec == true) {
     while(invVert.size() > 100) { 
       jsongraph.resetNumEdge();
@@ -132,7 +144,9 @@ int main(int argC, char *argV[]) {
         else if (invVert.size() > 20000) alpha = 2; 
         else if (invVert.size() > 5000) alpha = 1.5; 
         else alpha = 1;
-        palcol.reInit(invVert,invVert.size()/8,alpha);
+        std::cout <<nextFrac<<std::endl;
+        palcol.reInit(invVert,invVert.size()*nextFrac,alpha);
+        //palcol.reInit(invVert,target,alpha);
         palcol.buildConfGraph<std::vector<uint32_t>>(jsongraph,invVert);
         palcol.confColorGreedy(invVert);
       }
