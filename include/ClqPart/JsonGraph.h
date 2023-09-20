@@ -222,6 +222,7 @@ namespace ClqPart {
       void resetNumEdge() {numEdgeCom=0;}
       json createColGroup(std::vector<NODE_T> &, NODE_T); 
       void printData();
+      EDGE_T calculateNumComEdges();
 
     protected:
       std::string inputFile;
