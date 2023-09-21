@@ -178,6 +178,26 @@ namespace ClqPart {
     }
   }
 
+  EDGE_T JsonGraph::calculateNumComEdges() {
+  
+
+    NODE_T n=numDataPoints;
+    EDGE_T m = 0;
+
+    for (auto eu =0 ;eu<n-1;eu++) {
+      for (auto ev=eu+1;ev<n;ev++) {
+        if (is_an_edge<std::vector<uint32_t> >(eu,ev)) {
+            continue;
+        }
+        else {
+          //std::cout<<Z1.second<<" "<<Z2.second<<" "<<i+1<<" "<<j+1<<"\n";
+          m++;
+        }
+      }
+    }
+    return m;
+  }
+
   void JsonGraph::ReadJsonAdjacencyGraph() {
 
     //json::iterator it = data.begin(); 
@@ -191,27 +211,28 @@ namespace ClqPart {
     */
     
     double t1 = omp_get_wtime();     
-    auto i=0;
-    std::cout<<graph.edgeList.max_size()<<std::endl;
 
-    //data.end() --> one past the last element
-    for (auto it = data.begin(); it != std::prev(data.end(),1); ++it, ++i)
-    {
-      auto j=i+1;
-      for (auto it1 = std::next(it,1); it1 != data.end(); ++it1,++j) {
+    NODE_T n=numDataPoints;
+    EDGE_T m = 0;
 
-        if (is_an_edge(it.key(),it1.key())) {
+    for (auto eu =0 ;eu<n-1;eu++) {
+      for (auto ev=eu+1;ev<n;ev++) {
+        if (is_an_edge<std::vector<uint32_t> >(eu,ev)) {
             continue;
         }
         else {
           //std::cout<<Z1.second<<" "<<Z2.second<<" "<<i+1<<" "<<j+1<<"\n";
-          Edge e{i,j};
+          m++;
+          Edge e{eu,ev};
           graph.edgeList.push_back(e);
         }
       }
     }
-    graph.n = i+1;
-    graph.m = graph.edgeList.size();
+
+    graph.n = n;
+    graph.m = m;
+    numEdgeCom = m;
+    numDataPoints = n;
     generateTime = omp_get_wtime() - t1;
   }
 
@@ -286,11 +307,6 @@ namespace ClqPart {
   }
   void JsonGraph::ReadConstructWriteGraph(std::string fileName) {
 
-    std::ifstream f(inputFile);
-    if (!f.is_open()) {
-      std::cout<< "failed to open "<< inputFile<< "\n";
-      exit(1);
-    }
     if(fileTypeCheck(fileName,"mtx")==false) {
       std::cout << "file type is not mtx"<<std::endl;
       std::exit(1);
@@ -302,35 +318,24 @@ namespace ClqPart {
       std::cout<<"unable to open file"<<std::endl; 
       exit(1);
     }
-    json data = json::parse(f);  
-    //json::iterator it = data.begin(); 
-    
-    /*
-    for (auto& [key, val] : data.items())
-    {
-      std::string s(val);
-      std::cout << std::fixed<< "key: " << key << ", value:" << std::stod(s) << '\n';
-    } 
-    */
     
     double t1 = omp_get_wtime();     
-    NODE_T i=0;
+    NODE_T n=numDataPoints;
     EDGE_T m = 0;
-    for (auto it = data.begin(); it != std::prev(data.end(),1); ++it, ++i)
+
+    for (auto eu =0 ;eu<n-1;eu++)
     {
-      auto j=i+1;
-      for (auto it1 = std::next(it,1); it1 != data.end(); ++it1,++j) {
-        if (is_an_edge(it.key(),it1.key())) {
+      for (auto ev=eu+1;ev<n;ev++) {
+        if (is_an_edge<std::vector<uint32_t> >(eu,ev)) {
             continue;
         }
         else {
           //std::cout<<Z1.second<<" "<<Z2.second<<" "<<i+1<<" "<<j+1<<"\n";
           m++;
-          myfile<<j+1<<" "<<i+1<<"\n";
+          myfile<<ev+1<<" "<<eu+1<<"\n";
         }
       }
     }
-    NODE_T n = i+1;
     myfile<<n<<" "<<n<<" "<<m<<std::endl;
     generateTime = omp_get_wtime() - t1;
   }
