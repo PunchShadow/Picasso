@@ -46,8 +46,13 @@ int main(int argC, char *argV[]) {
     exit(1);
   }
 
-  ClqPart::JsonGraph jsongraph(inFname); 
+  ClqPart::JsonGraph jsongraph(inFname,false,true); 
+
   jsongraph.ReadJsonAdjacencyGraph();
+  NODE_T n = jsongraph.numOfData();
+  EDGE_T m = jsongraph.getNumEdge(); 
+  std::cout<<n<<" "<<m<<std::endl;
+
   std::cout<<"read and graph construction time: " << jsongraph.getGenTime()<<"\n";
   jsongraph.writeGraphMtx(outFname);
    

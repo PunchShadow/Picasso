@@ -215,13 +215,14 @@ namespace ClqPart {
       double getGenTime() {return generateTime;}
       double getWriteTime() {return writeTime;}
       NODE_T numOfData() { return numDataPoints;}
-      NODE_T getNumEdge() {return numEdgeCom;}
+      EDGE_T getNumEdge() {return numEdgeCom;}
       decltype(dataEnc)& getEncodedData() {return dataEnc;}
       size_t getPauliLength() {return data.begin().key().size();}
       size_t getPauliEncSize() {return pauliEncSize;}
       void resetNumEdge() {numEdgeCom=0;}
       json createColGroup(std::vector<NODE_T> &, NODE_T); 
       void printData();
+      EDGE_T calculateNumComEdges();
 
     protected:
       std::string inputFile;
