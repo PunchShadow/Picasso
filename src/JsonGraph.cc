@@ -231,6 +231,8 @@ namespace ClqPart {
 
     graph.n = n;
     graph.m = m;
+    numEdgeCom = m;
+    numDataPoints = n;
     generateTime = omp_get_wtime() - t1;
   }
 
