@@ -215,7 +215,7 @@ namespace ClqPart {
       double getGenTime() {return generateTime;}
       double getWriteTime() {return writeTime;}
       NODE_T numOfData() { return numDataPoints;}
-      NODE_T getNumEdge() {return numEdgeCom;}
+      EDGE_T getNumEdge() {return numEdgeCom;}
       decltype(dataEnc)& getEncodedData() {return dataEnc;}
       size_t getPauliLength() {return data.begin().key().size();}
       size_t getPauliEncSize() {return pauliEncSize;}
