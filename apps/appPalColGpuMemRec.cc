@@ -51,15 +51,18 @@ int main(int argC, char *argV[]) {
   cxxopts::Options options("palettecol", "read json pauli string files and color the graph using palette coloring algorithm"); 
   options.add_options()
     ("in,infile", "json file containing the pauli strings", cxxopts::value<std::string>())
-    ("t,target", "palette size", cxxopts::value<NODE_T>())
+    ("t,target", "palette size", cxxopts::value<double>())
     ("a,alpha", "coefficient to log(n) for list size", cxxopts::value<float>()->default_value("1.0"))
     ("l,list", "use explicit list size", cxxopts::value<NODE_T>()->default_value("-1"))
     ("c,check", "check validity of coloring", cxxopts::value<bool>()->default_value("false"))
     ("r,recurse", "use recursive coloring", cxxopts::value<bool>()->default_value("false"))
+    ("sd,seed", "use seed", cxxopts::value<int>()->default_value("123"))
     ("h,help", "print usage")
     ;
 
   std::string inFname;
+  int seed;
+  double target1;
   NODE_T target,list_size;
   float alpha;
   bool isValid,isRec;
@@ -70,8 +73,9 @@ int main(int argC, char *argV[]) {
           std::exit(0);
     }
     inFname = result["infile"].as<std::string>();
-    target = result["target"].as<NODE_T>();
+    target1 = result["target"].as<double>();
     alpha = result["alpha"].as<float>();
+    seed = result["seed"].as<int>();
     //isStream = result["stream"].as<bool>();
     isValid = result["check"].as<bool>();
     isRec = result["recurse"].as<bool>();
@@ -84,12 +88,23 @@ int main(int argC, char *argV[]) {
 
   ClqPart::JsonGraph jsongraph(inFname, false, true); 
   NODE_T n = jsongraph.numOfData();
+  
+  double nextFrac;
+  if(target1 < 1) {
+    std::cout<<"Using target as node percentage"<<std::endl; 
+    target = NODE_T(n*target1);
+    nextFrac = target1;
+  }
+  else {
+    target = NODE_T(target1); 
+    nextFrac = 1.0/8.0;
+  }
   if(list_size >=0)
     std::cout<<"Since list size is given, ignoring alpha"<<std::endl;
   bool Edge32Bit = n < (1 << 16);
   if(Edge32Bit){
     std::cout << "Using 32-bit offsets" << std::endl;
-    PaletteColor<unsigned int> palcol(n,target,alpha,list_size);
+    PaletteColor<unsigned int> palcol(n,target,alpha,list_size,seed);
   
     int level = 0;
     palcol.buildConfGraphGpuMemConscious(jsongraph);
@@ -109,11 +124,12 @@ int main(int argC, char *argV[]) {
                 else if (invVert.size() > 20000) alpha = 2; 
                 else if (invVert.size() > 5000) alpha = 1.5; 
                 else alpha = 1;
-                palcol.reInit(invVert,invVert.size()/8,alpha);
+                std::cout <<nextFrac<<std::endl;
+                palcol.reInit(invVert,invVert.size()*nextFrac,alpha);
                 palcol.buildConfGraphGpuMemConscious(jsongraph,invVert);
-                std::cout << "Greedy Coloring on GPU" << std::endl;
+                // std::cout << "Greedy Coloring on GPU" << std::endl;
                 palcol.confColorGreedyCSR(invVert);
-                std::cout << "Greedy Coloring on GPU Done" << std::endl;
+                // std::cout << "Greedy Coloring on GPU Done" << std::endl;
             }
             invVert = palcol.getInvVertices();
             palStat = palcol.getPalStat(level); 
@@ -142,7 +158,7 @@ int main(int argC, char *argV[]) {
   }
   else{
     std::cout << "Using 64-bit offsets" << std::endl;
-    PaletteColor<unsigned long long> palcol(n,target,alpha,list_size);
+    PaletteColor<unsigned long long> palcol(n,target,alpha,list_size,seed);
   
     int level = 0;
     palcol.buildConfGraphGpuMemConscious(jsongraph);
@@ -161,7 +177,8 @@ int main(int argC, char *argV[]) {
                 else if (invVert.size() > 20000) alpha = 2; 
                 else if (invVert.size() > 5000) alpha = 1.5; 
                 else alpha = 1;
-                palcol.reInit(invVert,invVert.size()/8,alpha);
+                std::cout <<nextFrac<<std::endl;
+                palcol.reInit(invVert,invVert.size()*nextFrac,alpha);
                 palcol.buildConfGraphGpuMemConscious(jsongraph,invVert);
                 palcol.confColorGreedyCSR(invVert);
             }
