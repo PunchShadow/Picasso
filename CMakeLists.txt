@@ -10,17 +10,31 @@ endif()
 
 project( CliqePart VERSION 0.1.0
         DESCRIPTION "Cliqe Partition for quantum chemistry"
-        LANGUAGES  C CXX CUDA
+        LANGUAGES  C CXX
         )
 
-set(CMAKE_CUDA_ARCHITECTURES 80)
-include_directories("${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
+# If CUDA detected, set ENABLE_CUDA flag
+find_package(CUDA)
+if(CUDA_FOUND)
+  set(ENABLE_CUDA ON)
+  # Print CUDA found
+  message(STATUS "CUDA found, enabling CUDA compilation")
+else()
+  set(ENABLE_CUDA OFF)
+  message(STATUS "CUDA not found, disabling CUDA compilation")
+endif()
+
+# If CUDA enabled, add as language
+if(ENABLE_CUDA)
+  enable_language(CUDA)
+  set(CMAKE_CUDA_ARCHITECTURES 80)
+  include_directories("${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
+endif()
 
 include(CTest)
 enable_testing()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-# set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
 
 #
 # Prevent building in the source directory
@@ -33,19 +47,6 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 #find_package(ColPack REQUIRED)
 find_package(OpenMP REQUIRED)
-
-# If CUDA enabled, find nvcc
-# if(ENABLE_CUDA)
-#   find_package(CUDA REQUIRED)
-#   set(CMAKE_CXX_COMPILER ${CUDA_TOOLKIT_ROOT_DIR}/bin/nvcc)
-#   set(CMAKE_CUDA_COMPILER ${CUDA_TOOLKIT_ROOT_DIR}/bin/nvcc)
-#   set(CMAKE_CUDA_HOST_COMPILER ${CMAKE_CXX_COMPILER})
-#   set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -std=c++11 -Xcompiler -fopenmp")
-#   # Set CUDA_ARCHITECTURES to 80
-#   set(CMAKE_CUDA_ARCHITECTURES 80)
-#   include_directories(${CUDA_INCLUDE_DIRS})
-#   link_directories(${CUDA_LIBRARY_DIRS})
-# endif()
 
 
 # The executable code is here
