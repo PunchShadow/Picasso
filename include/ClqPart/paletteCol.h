@@ -118,6 +118,14 @@ public:
     assignListColor();
   }
 
+  //overloaded method
+  PaletteColor(NODE_T n1) {
+    n=n1; 
+    colors.resize(n,-1);
+    palStat.push_back({n,-1,-1,-1,-1,0,0.0,0.0,0.0,0.0});
+    level=0;
+  }
+
   template<typename PauliTy = std::string>
   void naiveGreedyColor(std::vector<NODE_T> vertList, ClqPart::JsonGraph &jsongraph, NODE_T offset) {
 
@@ -132,6 +140,7 @@ public:
         for(auto j=0; j<i; j++) {
           NODE_T ev = vertList[j]; 
 
+          //std::cout<<eu<<std::endl;
           if(jsongraph.is_an_edge<PauliTy>(eu,ev) == false) { 
             if (colors[ev] >= 0) {
               forbiddenCol[colors[ev]] = eu;
@@ -147,7 +156,7 @@ public:
           } 
         }
       }
-      palStat[level].invColorTime = omp_get_wtime() - t1; 
+      //palStat[level].invColorTime = omp_get_wtime() - t1; 
       nColors = *std::max_element(colors.begin(),colors.end()) + 1;
     }
   }

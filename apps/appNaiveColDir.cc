@@ -35,12 +35,14 @@ int main(int argC, char *argV[]) {
   options.add_options()
     ("in,infile", "input json file name", cxxopts::value<std::string>())
 //("out,outfile", "output color file name", cxxopts::value<std::string>()->default_value(""))
-    //("o,order", "LARGEST_FIRST,SMALLEST_LAST,NATURAL,RANDOM,DYNAMIC_LARGEST_FIRST,INCIDENCE_DEGREE",cxxopts::value<std::string>()->default_value("LARGEST_FIRST"))
+    ("o,order", "NATURAL,RANDOM",cxxopts::value<std::string>()->default_value("RANDOM"))
+    ("sd,seed", "use seed", cxxopts::value<int>()->default_value("123"))
     ("h,help", "print usage")
     ;
 
   //std::string inFname, outFname,order;
-  std::string inFname;
+  std::string inFname,orderName;
+  int seed;
   try{
     auto result = options.parse(argC,argV);
     if (result.count("help")) {
@@ -48,16 +50,19 @@ int main(int argC, char *argV[]) {
           std::exit(0);
     }
     inFname = result["infile"].as<std::string>();
+    orderName = result["order"].as<std::string>();
+    seed = result["seed"].as<int>();
   }
   catch(cxxopts::exceptions::exception &exp) {
     std::cout<<options.help()<<std::endl;
     exit(1);
   }
 
-  ClqPart::JsonGraph jsongraph(inFname,true); 
+  ClqPart::JsonGraph jsongraph(inFname,false,true); 
   NODE_T n = jsongraph.numOfData();
   //jsongraph.printData();
 
+  /*
   std::vector<NODE_T> forbiddenCol(n,-1);
   std::vector<NODE_T> colors(n,-1);
   
@@ -81,6 +86,21 @@ int main(int argC, char *argV[]) {
   }
   
   NODE_T nColors = *std::max_element(colors.begin(),colors.end()) + 1;
+  */
+  PaletteColor palcol(n);
+  std::vector<NODE_T> vertList(n);
+  std::iota(vertList.begin(),vertList.end(),0);
+  if(orderName == "RANDOM") {
+    std::cout<<"using random ordering, seed: "<<seed<<std::endl; 
+    std::mt19937 engine(seed);
+    std::shuffle(vertList.begin(),vertList.end(),engine);
+  }
+  else {
+    std::cout<<"using natural ordering; ignoring seed" <<std::endl; 
+  }
+
+  palcol.naiveGreedyColor<std::vector<uint32_t>>(vertList,jsongraph,0);
+  auto nColors = palcol.getNumColors();
   std::cout<<jsongraph.numOfData()<<" "
     <<jsongraph.getNumEdge()<<" "
     <<nColors<<std::endl;
