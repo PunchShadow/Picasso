@@ -803,12 +803,48 @@ void orderConfVerticesRand() {
 }
 
 //This function attempt to color the conflicting graph with largest degree heuristics.
-//Does not perform well
 void confColorLF() {
   
   //std::cout<<"conflicting edges: "<<nConflicts<<std::endl; 
   double t1 = omp_get_wtime();
   orderConfVerticesLF();
+  for(NODE_T i:vertexOrder) {
+    if(confAdjList[i].empty() == false) {
+      for(auto col:colList[i]) {
+        bool flag = true;
+        for(auto v:confAdjList[i]) {
+          if (colors[v] == col) {
+            flag = false;
+            break; 
+          }
+        }     
+
+        if(flag == true) {
+          colors[i] = col;
+          break; 
+        }
+      }  
+      if(colors[i] == -1) {
+        invalidVertices.push_back(i);
+        colors[i] = -2;
+      }
+    } 
+    else
+      colors[i] = colList[i][0];
+    //std::cout<<i<<" "<<colors[i]<<std::endl;
+  }
+  palStat[level].confColorTime = omp_get_wtime() - t1;
+  //std::cout<<"# of vertices can not be colored: "<<invalidVertices.size()
+   // <<std::endl;
+  nColors = *std::max_element(colors.begin(),colors.end()) + 1;
+}
+
+//random order 
+void confColorRand() {
+  
+  //std::cout<<"conflicting edges: "<<nConflicts<<std::endl; 
+  double t1 = omp_get_wtime();
+  orderConfVerticesRand();
   for(NODE_T i:vertexOrder) {
     if(confAdjList[i].empty() == false) {
       for(auto col:colList[i]) {
