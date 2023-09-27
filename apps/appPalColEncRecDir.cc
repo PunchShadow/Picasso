@@ -151,6 +151,7 @@ int main(int argC, char *argV[]) {
   cxxopts::Options options("palettecol", "read json pauli string files and color the graph using palette coloring algorithm"); 
   options.add_options()
     ("in,infile", "json file containing the pauli strings", cxxopts::value<std::string>())
+    ("prob,problem", "problem name", cxxopts::value<std::string>()->default_value(""))
     ("out,outfile", "json file containing the groups after coloring", cxxopts::value<std::string>()->default_value(""))
     ("res,result", "result log file ", cxxopts::value<std::string>()->default_value(""))
     ("t,target", "palette size", cxxopts::value<double>())
@@ -165,7 +166,7 @@ int main(int argC, char *argV[]) {
     ;
 
   auto baseline = getPeakRSS();
-  std::string inFname,outFname,orderName,resFileName;
+  std::string inFname,outFname,orderName,resFileName,probName;
   int seed;
   double target1;
   NODE_T target,list_size;
@@ -178,6 +179,7 @@ int main(int argC, char *argV[]) {
           std::exit(0);
     }
     inFname = result["infile"].as<std::string>();
+    probName = result["prob"].as<std::string>();
     outFname = result["outfile"].as<std::string>();
     resFileName = result["result"].as<std::string>();
     orderName = result["order"].as<std::string>();
@@ -200,7 +202,7 @@ int main(int argC, char *argV[]) {
     log.create_log_file(resFileName); 
   }
   log.seed = seed;
-  log.problem_name = getLastPartOfFilepath(inFname);
+  log.problem_name = probName;
   ClqPart::JsonGraph jsongraph(inFname, false, true); 
   NODE_T n = jsongraph.numOfData();
   log.n = n;
