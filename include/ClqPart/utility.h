@@ -22,3 +22,5 @@ void getDegrees(LightGraph &, std::vector<NODE_T> &);
 std::pair<NODE_T,NODE_T> getMaxDegreeNode(LightGraph &G);
 
 bool isValidColoring(LightGraph &G, std::vector<NODE_T> &colors);
+
+std::string getLastPartOfFilepath(const std::string& ); 
