@@ -54,13 +54,14 @@ int main(int argC, char *argV[]) {
     ("t,target", "palette size", cxxopts::value<double>())
     ("a,alpha", "coefficient to log(n) for list size", cxxopts::value<float>()->default_value("1.0"))
     ("l,list", "use explicit list size", cxxopts::value<NODE_T>()->default_value("-1"))
+    ("o,order", "RANDOM, LIST",cxxopts::value<std::string>()->default_value("LIST"))
     ("c,check", "check validity of coloring", cxxopts::value<bool>()->default_value("false"))
     ("r,recurse", "use recursive coloring", cxxopts::value<bool>()->default_value("false"))
     ("sd,seed", "use seed", cxxopts::value<int>()->default_value("123"))
     ("h,help", "print usage")
     ;
 
-  std::string inFname;
+  std::string inFname,orderName;
   int seed;
   double target1;
   NODE_T target,list_size;
@@ -73,6 +74,7 @@ int main(int argC, char *argV[]) {
           std::exit(0);
     }
     inFname = result["infile"].as<std::string>();
+    orderName = result["order"].as<std::string>();
     target1 = result["target"].as<double>();
     alpha = result["alpha"].as<float>();
     seed = result["seed"].as<int>();
@@ -108,7 +110,12 @@ int main(int argC, char *argV[]) {
   
     int level = 0;
     palcol.buildConfGraphGpuMemConscious(jsongraph);
-    palcol.confColorGreedyCSR();  
+    if(orderName == "RANDOM"){
+      palcol.confColorRandCSR();
+    }
+    else{
+      palcol.confColorGreedyCSR();  
+    }
     std::vector <NODE_T>  invVert = palcol.getInvVertices();
     PalColStat palStat = palcol.getPalStat(level); 
     palStat.m = jsongraph.getNumEdge();
@@ -128,7 +135,12 @@ int main(int argC, char *argV[]) {
                 palcol.reInit(invVert,invVert.size()*nextFrac,alpha);
                 palcol.buildConfGraphGpuMemConscious(jsongraph,invVert);
                 // std::cout << "Greedy Coloring on GPU" << std::endl;
-                palcol.confColorGreedyCSR(invVert);
+                if(orderName == "RANDOM"){
+                  palcol.confColorRandCSR(invVert);
+                }
+                else{
+                  palcol.confColorGreedyCSR(invVert);
+                }
                 // std::cout << "Greedy Coloring on GPU Done" << std::endl;
             }
             invVert = palcol.getInvVertices();
@@ -162,7 +174,12 @@ int main(int argC, char *argV[]) {
   
     int level = 0;
     palcol.buildConfGraphGpuMemConscious(jsongraph);
-    palcol.confColorGreedyCSR();  
+    if(orderName == "RANDOM"){
+      palcol.confColorRandCSR();
+    }
+    else{
+      palcol.confColorGreedyCSR();  
+    }
     std::vector <NODE_T>  invVert = palcol.getInvVertices();
     PalColStat palStat = palcol.getPalStat(level); 
     palStat.m = jsongraph.getNumEdge();
@@ -180,7 +197,12 @@ int main(int argC, char *argV[]) {
                 // std::cout <<nextFrac<<std::endl;
                 palcol.reInit(invVert,invVert.size()*nextFrac,alpha);
                 palcol.buildConfGraphGpuMemConscious(jsongraph,invVert);
-                palcol.confColorGreedyCSR(invVert);
+                if(orderName == "RANDOM"){
+                  palcol.confColorRandCSR(invVert);
+                }
+                else{
+                  palcol.confColorGreedyCSR(invVert);
+                }
             }
             invVert = palcol.getInvVertices();
             palStat = palcol.getPalStat(level); 

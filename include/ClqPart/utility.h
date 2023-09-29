@@ -17,6 +17,7 @@
  */
 
 #include "ClqPart/graph.h"
+#include <string>
 
 void getDegrees(LightGraph &, std::vector<NODE_T> &);
 std::pair<NODE_T,NODE_T> getMaxDegreeNode(LightGraph &G);

@@ -280,7 +280,12 @@ int main(int argC, char *argV[]) {
         palcol.reInit(invVert,invVert.size()*nextFrac,alpha);
         //palcol.reInit(invVert,target,alpha);
         palcol.buildConfGraph<std::vector<uint32_t>>(jsongraph,invVert);
-        palcol.confColorGreedy(invVert);
+        if(orderName == "RANDOM"){
+          palcol.confColorRand(invVert);
+        }
+        else {
+          palcol.confColorGreedy(invVert);
+        }
       }
       invVert = palcol.getInvVertices();
       palStat = palcol.getPalStat(level); 

@@ -774,6 +774,80 @@ void fixBucketsCSR(NODE_T vtx, NODE_T col, NODE_T &vtxProcessed,
 
   
 }
+
+void confColorRandCSR(std::vector<NODE_T> &nodeList) {
+  
+  //std::cout<<"conflicting edges: "<<nConflicts<<std::endl; 
+  double t1 = omp_get_wtime();
+  orderConfVerticesRand(nodeList);
+  for(NODE_T i:nodeList) {
+    if(h_confOffsets[i+1] - h_confOffsets[i] != 0) {
+      for(auto col:colList[i]) {
+        bool flag = true;
+        for(auto v_id = h_confOffsets[i]; v_id < h_confOffsets[i+1]; v_id++) {
+          auto v = h_confVertices[v_id];
+          if (colors[v] == col) {
+            flag = false;
+            break; 
+          }
+        }     
+
+        if(flag == true) {
+          colors[i] = col;
+          break; 
+        }
+      }  
+      if(colors[i] == -1) {
+        invalidVertices.push_back(i);
+        colors[i] = -2;
+      }
+    } 
+    else
+      colors[i] = colList[i][0];
+    //std::cout<<i<<" "<<colors[i]<<std::endl;
+  }
+  palStat[level].confColorTime = omp_get_wtime() - t1;
+  //std::cout<<"# of vertices can not be colored: "<<invalidVertices.size()
+   // <<std::endl;
+  nColors = *std::max_element(colors.begin(),colors.end()) + 1;
+}
+
+void confColorRandCSR() {
+  
+  //std::cout<<"conflicting edges: "<<nConflicts<<std::endl; 
+  double t1 = omp_get_wtime();
+  orderConfVerticesRand();
+  for(NODE_T i:vertexOrder) {
+    if(h_confOffsets[i+1] - h_confOffsets[i] != 0) {
+      for(auto col:colList[i]) {
+        bool flag = true;
+        for(auto v_id = h_confOffsets[i]; v_id < h_confOffsets[i+1]; v_id++) {
+          auto v = h_confVertices[v_id];
+          if (colors[v] == col) {
+            flag = false;
+            break; 
+          }
+        }     
+
+        if(flag == true) {
+          colors[i] = col;
+          break; 
+        }
+      }  
+      if(colors[i] == -1) {
+        invalidVertices.push_back(i);
+        colors[i] = -2;
+      }
+    } 
+    else
+      colors[i] = colList[i][0];
+    //std::cout<<i<<" "<<colors[i]<<std::endl;
+  }
+  palStat[level].confColorTime = omp_get_wtime() - t1;
+  //std::cout<<"# of vertices can not be colored: "<<invalidVertices.size()
+   // <<std::endl;
+  nColors = *std::max_element(colors.begin(),colors.end()) + 1;
+}
 #endif // ENABLE_GPU
 
 //This function sort the vertices of the conflict graph w.r.t to their degrees.
@@ -802,6 +876,11 @@ void orderConfVerticesRand() {
   std::iota(vertexOrder.begin(),vertexOrder.end(),0);
   std::mt19937 engine(seed);
   std::shuffle(vertexOrder.begin(),vertexOrder.end(),engine);
+}
+
+void orderConfVerticesRand(std::vector<NODE_T> &nodeList) {
+  std::mt19937 engine(seed);
+  std::shuffle(nodeList.begin(),nodeList.end(),engine);
 }
 
 //This function attempt to color the conflicting graph with largest degree heuristics.
@@ -848,6 +927,42 @@ void confColorRand() {
   double t1 = omp_get_wtime();
   orderConfVerticesRand();
   for(NODE_T i:vertexOrder) {
+    if(confAdjList[i].empty() == false) {
+      for(auto col:colList[i]) {
+        bool flag = true;
+        for(auto v:confAdjList[i]) {
+          if (colors[v] == col) {
+            flag = false;
+            break; 
+          }
+        }     
+
+        if(flag == true) {
+          colors[i] = col;
+          break; 
+        }
+      }  
+      if(colors[i] == -1) {
+        invalidVertices.push_back(i);
+        colors[i] = -2;
+      }
+    } 
+    else
+      colors[i] = colList[i][0];
+    //std::cout<<i<<" "<<colors[i]<<std::endl;
+  }
+  palStat[level].confColorTime = omp_get_wtime() - t1;
+  //std::cout<<"# of vertices can not be colored: "<<invalidVertices.size()
+   // <<std::endl;
+  nColors = *std::max_element(colors.begin(),colors.end()) + 1;
+}
+
+void confColorRand(std::vector<NODE_T> &nodeList) {
+  
+  //std::cout<<"conflicting edges: "<<nConflicts<<std::endl; 
+  double t1 = omp_get_wtime();
+  orderConfVerticesRand(nodeList);
+  for(NODE_T i:nodeList) {
     if(confAdjList[i].empty() == false) {
       for(auto col:colList[i]) {
         bool flag = true;
