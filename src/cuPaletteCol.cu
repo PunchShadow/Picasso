@@ -121,6 +121,7 @@ __global__ void build_coo_complement_graph_kernel(
     OffsetTy num_edges = (OffsetTy)n_vertices*(OffsetTy)n_vertices;
     // NODE_T halfway_point = n_vertices / 2;
     // Grid-Stride Loop only for lower triangle of matrix
+    OffsetTy conflict_count = 0;
     for(OffsetTy edge_id = blockIdx.x * blockDim.x + threadIdx.x; edge_id < num_edges; edge_id += blockDim.x * gridDim.x){
         NODE_T row = edge_id / (OffsetTy)n_vertices;
         NODE_T col = edge_id - ((OffsetTy)row * (OffsetTy)n_vertices);
@@ -130,12 +131,13 @@ __global__ void build_coo_complement_graph_kernel(
             bool isedge = compare_pauli_matrices(pauli1, pauli2, pauliEncSize);
             // If conflicting complement edge
             if(!isedge){
-                OffsetTy index_offset = atomicAdd(d_nConflicts, 1);
+                conflict_count++;
                 atomicAdd(&d_confOffsets[row], 1);
                 atomicAdd(&d_confOffsets[col], 1);
             }
         }
     }
+    atomicAdd(d_nConflicts, conflict_count);
 }
 
 template <typename OffsetTy>

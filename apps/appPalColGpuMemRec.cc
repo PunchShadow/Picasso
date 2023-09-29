@@ -120,11 +120,11 @@ int main(int argC, char *argV[]) {
             jsongraph.resetNumEdge();
             level++;
             if(invVert.empty() == false) {
-                if(invVert.size() > 40000) alpha = 3;
-                else if (invVert.size() > 20000) alpha = 2; 
-                else if (invVert.size() > 5000) alpha = 1.5; 
-                else alpha = 1;
-                std::cout <<nextFrac<<std::endl;
+                // if(invVert.size() > 40000) alpha = 3;
+                // else if (invVert.size() > 20000) alpha = 2; 
+                // else if (invVert.size() > 5000) alpha = 1.5; 
+                // else alpha = 1;
+                // std::cout <<nextFrac<<std::endl;
                 palcol.reInit(invVert,invVert.size()*nextFrac,alpha);
                 palcol.buildConfGraphGpuMemConscious(jsongraph,invVert);
                 // std::cout << "Greedy Coloring on GPU" << std::endl;
@@ -173,11 +173,11 @@ int main(int argC, char *argV[]) {
             jsongraph.resetNumEdge();
             level++;
             if(invVert.empty() == false) {
-                if(invVert.size() > 40000) alpha = 3;
-                else if (invVert.size() > 20000) alpha = 2; 
-                else if (invVert.size() > 5000) alpha = 1.5; 
-                else alpha = 1;
-                std::cout <<nextFrac<<std::endl;
+                // if(invVert.size() > 40000) alpha = 3;
+                // else if (invVert.size() > 20000) alpha = 2; 
+                // else if (invVert.size() > 5000) alpha = 1.5; 
+                // else alpha = 1;
+                // std::cout <<nextFrac<<std::endl;
                 palcol.reInit(invVert,invVert.size()*nextFrac,alpha);
                 palcol.buildConfGraphGpuMemConscious(jsongraph,invVert);
                 palcol.confColorGreedyCSR(invVert);

@@ -248,8 +248,9 @@ void buildConfGraphGpuMemConscious (ClqPart::JsonGraph &jsongraph) {
   // Find out how much free memory is on the GPU
   size_t freeMem, totalMem;
   ERR_CHK(cudaMemGetInfo(&freeMem, &totalMem));
+  size_t worst_size = n * (n - 1) * sizeof(NODE_T) * 2;
   // Allocate 90% of it
-  size_t allocMem = (freeMem * 0.9);
+  size_t allocMem = std::min((size_t)(freeMem * 0.95), worst_size);
   ERR_CHK(cudaMalloc(&d_confVertices, allocMem));
 
   ERR_CHK(cudaDeviceSynchronize());
@@ -281,7 +282,7 @@ void buildConfGraphGpuMemConscious (ClqPart::JsonGraph &jsongraph) {
     // Too Large for GPU memory, use CPU to post-process
     ERR_CHK(cudaMemcpy(h_confOffsets.data(), d_confOffsets, h_confOffsets.size() * sizeof(OffsetTy), cudaMemcpyDeviceToHost));
     std::vector<Edge> h_cooVerticesTmp(nConflicts);
-    ERR_CHK(cudaMemcpy(h_cooVerticesTmp.data(), d_confVertices, h_cooVerticesTmp.size() * sizeof(NODE_T), cudaMemcpyDeviceToHost));
+    ERR_CHK(cudaMemcpy(h_cooVerticesTmp.data(), d_confVertices, h_cooVerticesTmp.size() * sizeof(Edge), cudaMemcpyDeviceToHost));
     std::vector<std::atomic<OffsetTy>> h_confOffsetsTmp(n);
     for(NODE_T i = 0; i < n; i++){
       std::atomic_init(&h_confOffsetsTmp[i], 0);
@@ -374,8 +375,9 @@ void buildConfGraphGpuMemConscious (ClqPart::JsonGraph &jsongraph, std::vector<N
   // Find out how much free memory is on the GPU
   size_t freeMem, totalMem;
   ERR_CHK(cudaMemGetInfo(&freeMem, &totalMem));
+  size_t worst_size = nodeList.size() * (nodeList.size() - 1) * sizeof(NODE_T) * 2;
   // Allocate 90% of it
-  size_t allocMem = (freeMem * 0.9);
+  size_t allocMem = std::min((size_t)(freeMem * 0.95), worst_size);
   ERR_CHK(cudaMalloc(&d_confVertices, allocMem));
 
   ERR_CHK(cudaDeviceSynchronize());
@@ -394,19 +396,19 @@ void buildConfGraphGpuMemConscious (ClqPart::JsonGraph &jsongraph, std::vector<N
     NODE_T *d_confCsr = d_confVertices + nConflicts*2;
     buildCsrConfGraphDevice(n, d_confOffsets, d_confOffsetsCnt, d_confVertices, d_confCsr, nConflicts);
     ERR_CHK(cudaDeviceSynchronize());
-    double t2 = omp_get_wtime();
+    // double t2 = omp_get_wtime();
     // Read d_confCsr from GPU
     ERR_CHK(cudaMemcpy(h_confOffsets.data(), d_confOffsets, h_confOffsets.size() * sizeof(OffsetTy), cudaMemcpyDeviceToHost));
     ERR_CHK(cudaMemcpy(h_confVertices.data(), d_confCsr, h_confVertices.size() * sizeof(NODE_T), cudaMemcpyDeviceToHost));
     ERR_CHK(cudaDeviceSynchronize());
-    std:: cout << "Copy time: " << omp_get_wtime() - t2 << std::endl;
+    // std:: cout << "Copy time: " << omp_get_wtime() - t2 << std::endl;
     // std::cout << h_confVertices[0] << " " << h_confVertices[nConflicts*2-1] << std::endl;
   }
   else{
     // Too Large for GPU memory, use CPU to post-process
     ERR_CHK(cudaMemcpy(h_confOffsets.data(), d_confOffsets, h_confOffsets.size() * sizeof(OffsetTy), cudaMemcpyDeviceToHost));
     std::vector<Edge> h_cooVerticesTmp(nConflicts);
-    ERR_CHK(cudaMemcpy(h_cooVerticesTmp.data(), d_confVertices, h_cooVerticesTmp.size() * sizeof(NODE_T), cudaMemcpyDeviceToHost));
+    ERR_CHK(cudaMemcpy(h_cooVerticesTmp.data(), d_confVertices, h_cooVerticesTmp.size() * sizeof(Edge), cudaMemcpyDeviceToHost));
     std::vector<std::atomic<OffsetTy>> h_confOffsetsTmp(n);
     for(NODE_T i = 0; i < nodeList.size(); i++){
       std::atomic_init(&h_confOffsetsTmp[i], 0);
