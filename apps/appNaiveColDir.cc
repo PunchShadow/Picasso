@@ -27,11 +27,12 @@
 #include "cxxopts/cxxopts.hpp"
 #include "ClqPart/utility.h"
 #include "ClqPart/greedyColor.h"
+#include "ClqPart/MemUsage.h"
 
 
 int main(int argC, char *argV[]) {
   
-  cxxopts::Options options("naivecol", "read json pauli string files and color the graph using naive coloring algorithm"); 
+  cxxopts::Options options("naivecol", "read json pauli string files and color the graph using a naive greedy coloring algorithm. "); 
   options.add_options()
     ("in,infile", "input json file name", cxxopts::value<std::string>())
 //("out,outfile", "output color file name", cxxopts::value<std::string>()->default_value(""))
@@ -40,6 +41,7 @@ int main(int argC, char *argV[]) {
     ("h,help", "print usage")
     ;
 
+  auto baseline = getPeakRSS();
   //std::string inFname, outFname,order;
   std::string inFname,orderName;
   int seed;
@@ -90,6 +92,7 @@ int main(int argC, char *argV[]) {
   PaletteColor palcol(n);
   std::vector<NODE_T> vertList(n);
   std::iota(vertList.begin(),vertList.end(),0);
+
   if(orderName == "RANDOM") {
     std::cout<<"using random ordering, seed: "<<seed<<std::endl; 
     std::mt19937 engine(seed);
@@ -98,37 +101,16 @@ int main(int argC, char *argV[]) {
   else {
     std::cout<<"using natural ordering; ignoring seed" <<std::endl; 
   }
+  
 
   palcol.naiveGreedyColor<std::vector<uint32_t>>(vertList,jsongraph,0);
   auto nColors = palcol.getNumColors();
-  std::cout<<jsongraph.numOfData()<<" "
-    <<jsongraph.getNumEdge()<<" "
-    <<nColors<<std::endl;
-  /*PaletteColor palcol(n,target,alpha);
+  auto palstat = palcol.getPalStat();
 
-  ClqPart::Edge e;
-  double t1 = omp_get_wtime();
-  while(jsongraph.nextEdge(e)) {
-     palcol.buildStreamConfGraph(e.u,e.v); 
-  
-  }
-  double createConfTime = omp_get_wtime() - t1;
-  std::cout<<"creating conflict graph time: "<<createConfTime<<std::endl;
+  auto mem = getPeakRSS() - baseline;
 
-  std::vector< std::vector<NODE_T> > confEdges = palcol.getConfAdjList();
-  palcol.confColorGreedy();
-  std::vector<NODE_T> colors = palcol.getColors();
-  */
-  /*
-  std::vector<NODE_T> colHist(n/7,0);
-  for(auto u:colors) {
-    if(u>=0) colHist[u]++; 
-  }
-  for( auto c:colHist) {
-    std::cout<<c<<std::endl;
-    if(c==0)
-     unassigned++; 
-  }
-  */
+  std::cout<<jsongraph.numOfData()<<","
+    <<jsongraph.getNumEdge()<<","
+    <<nColors<<","<<palstat.invColorTime<<","<<mem<<std::endl;
   return 0;
 }  
