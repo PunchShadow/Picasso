@@ -63,6 +63,7 @@ public:
   NODE_T tot_listsize;
   NODE_T ncolors;
   EDGE_T tot_conf_edges;
+  EDGE_T max_conf_edges;
   double tot_build_time;
   double tot_conf_color_time;
   double tot_assign_time;
@@ -101,7 +102,7 @@ public:
           std::cout<<"Could not open the result output file"<<std::endl; 
         }   
         if(fexist == false) 
-          fwrite<<"graph,n,m,b,eps,algorithm,edge-reatined,read,process,post-process,color,dp,weight,card,mem"<<std::endl;
+          fwrite<<"problem,seed,nlevels,n,m,order_conf,tot_palsz,tot_lstsz,ncols,tot_conf_edges,max_conf_edges,tot_build_tm,tot_conf_tm,tot_assgn_tm,tot_inv_tm,mem"<<std::endl;
       }
   }
   LOG(std::string _log_file) {
@@ -116,7 +117,7 @@ public:
           std::cout<<"Could not open the result output file"<<std::endl; 
         }   
         if(fexist == false) 
-          fwrite<<"problem,seed,nlevels,n,m,order_conf,tot_palsz,tot_lstsz,ncols,tot_conf_edges,tot_build_tm,tot_conf_tm,tot_assgn_tm,tot_inv_tm,mem"<<std::endl;
+          fwrite<<"problem,seed,nlevels,n,m,order_conf,tot_palsz,tot_lstsz,ncols,tot_conf_edges,max_conf_edges,tot_build_tm,tot_conf_tm,tot_assgn_tm,tot_inv_tm,mem"<<std::endl;
       }
   }
   LOG()=default;
@@ -132,12 +133,12 @@ public:
           std::cout<<"Could not open the result output file"<<std::endl; 
         }   
         if(fexist == false) 
-          fwrite<<"problem,seed,nlevels,n,m,order_conf,tot_palsz,tot_lstsz,ncols,tot_conf_edges,tot_build_tm,tot_conf_tm,tot_assgn_tm,tot_inv_tm,mem"<<std::endl;
+          fwrite<<"problem,seed,nlevels,n,m,order_conf,tot_palsz,tot_lstsz,ncols,tot_conf_edges,max_conf_edges,tot_build_tm,tot_conf_tm,tot_assgn_tm,tot_inv_tm,mem"<<std::endl;
       }
   }
   void append() {
     fwrite<<problem_name<<","<<seed<<","<<nLevels<<","<<n<<","<<m<<","
-              <<order_conf<<","<<tot_palsize<<","<<tot_listsize<<","<<ncolors<<","<<tot_conf_edges
+              <<order_conf<<","<<tot_palsize<<","<<tot_listsize<<","<<ncolors<<","<<tot_conf_edges<<","<<max_conf_edges
               <<","<<tot_build_time<<","<<tot_conf_color_time<<","<<tot_assign_time
               <<","<<tot_invalid_time<<","<<max_memory<<std::endl; 
          
@@ -158,6 +159,7 @@ int main(int argC, char *argV[]) {
     ("a,alpha", "coefficient to log(n) for list size", cxxopts::value<float>()->default_value("1.0"))
     //("s,stream", "use streaming construction", cxxopts::value<bool>()->default_value("false"))
     ("l,list", "use explicit list size", cxxopts::value<NODE_T>()->default_value("-1"))
+    ("inv,ninv", "number of invalid vertices tolerance", cxxopts::value<NODE_T>()->default_value("100"))
     ("o,order", "RANDOM, LIST",cxxopts::value<std::string>()->default_value("LIST"))
     ("c,check", "check validity of coloring", cxxopts::value<bool>()->default_value("false"))
     ("r,recurse", "use recursive coloring", cxxopts::value<bool>()->default_value("false"))
@@ -165,11 +167,10 @@ int main(int argC, char *argV[]) {
     ("h,help", "print usage")
     ;
 
-  auto baseline = getPeakRSS();
   std::string inFname,outFname,orderName,resFileName,probName;
   int seed;
   double target1;
-  NODE_T target,list_size;
+  NODE_T target,list_size,nInv;
   float alpha;
   bool isValid,isRec;
   try{
@@ -190,6 +191,7 @@ int main(int argC, char *argV[]) {
     isValid = result["check"].as<bool>();
     isRec = result["recurse"].as<bool>();
     list_size = result["list"].as<NODE_T>();
+    nInv = result["ninv"].as<NODE_T>();
   }
   catch(cxxopts::exceptions::exception &exp) {
     std::cout<<options.help()<<std::endl;
@@ -207,6 +209,7 @@ int main(int argC, char *argV[]) {
   NODE_T n = jsongraph.numOfData();
   log.n = n;
   double nextFrac;
+  auto baseline = getPeakRSS();
   if(target1 < 1) {
     std::cout<<"Using target as node percentage"<<std::endl; 
     target = NODE_T(n*target1);
@@ -219,6 +222,8 @@ int main(int argC, char *argV[]) {
   if(list_size >=0)
     std::cout<<"Since list size is given, ignoring alpha"<<std::endl;
   PaletteColor palcol(n,target,alpha,list_size,seed);
+
+  std::cout<<getPeakRSS() - baseline<<std::endl;
   
   int level = 0;
   //level 0 
@@ -232,6 +237,7 @@ int main(int argC, char *argV[]) {
     }
   }*/
   palcol.buildConfGraph<std::vector<uint32_t>>(jsongraph);
+  std::cout<<getPeakRSS() - baseline<<std::endl;
   
   //double createConfTime = omp_get_wtime() - t1;
   //std::cout<<"Conflict graph construction time: "<<createConfTime<<std::endl;
@@ -247,6 +253,7 @@ int main(int argC, char *argV[]) {
     palcol.confColorGreedy();
   }
   //std::vector<NODE_T> colors = palcol.getColors();
+  std::cout<<getPeakRSS() - baseline<<std::endl;
   
   std::vector <NODE_T>  invVert = palcol.getInvVertices();
   PalColStat palStat = palcol.getPalStat(level); 
@@ -262,11 +269,12 @@ int main(int argC, char *argV[]) {
   log.tot_build_time += palStat.confBuildTime;
   log.tot_conf_color_time += palStat.confColorTime;
   log.tot_conf_edges += palStat.mConf;
+  log.max_conf_edges = palStat.mConf;
 
   printStat(level,palStat);
   
   if (isRec == true) {
-    while(invVert.size() > 100) { 
+    while(invVert.size() > nInv) { 
       jsongraph.resetNumEdge();
       level++;
       if(invVert.empty() == false) {
@@ -299,6 +307,8 @@ int main(int argC, char *argV[]) {
       log.tot_build_time += palStat.confBuildTime;
       log.tot_conf_color_time += palStat.confColorTime;
       log.tot_conf_edges += palStat.mConf;
+      if(palStat.mConf > log.max_conf_edges)
+        log.max_conf_edges = palStat.mConf;
 
       printStat(level,palStat);
     }
