@@ -84,7 +84,7 @@ namespace ClqPart {
           pauliEncSize = (pauli_length + terms_per_int - 1) / terms_per_int;
           dataEnc.reserve(pauli_length*pauliEncSize);
           #endif
-          std::cout << "Encoding" << std::endl;
+          //std::cout << "Encoding" << std::endl;
           for (auto& el : data.items()){
             // json pair = json::array();
             #ifndef ENABLE_GPU
@@ -132,7 +132,7 @@ namespace ClqPart {
             #endif
           }
           numDataPoints = data.size();
-          std::cout << "Done encoding!" << std::endl;
+          //std::cout << "Done encoding!" << std::endl;
         }
         else{
           // dataAr = nlohmann::json::array();

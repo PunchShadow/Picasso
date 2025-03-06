@@ -156,7 +156,7 @@ public:
           } 
         }
       }
-      //palStat[level].invColorTime = omp_get_wtime() - t1; 
+      palStat[level].invColorTime = omp_get_wtime() - t1; 
       nColors = *std::max_element(colors.begin(),colors.end()) + 1;
     }
   }
@@ -1207,6 +1207,11 @@ void confColorGreedy(std::vector<NODE_T> &nodeList) {
       colors[u] = -1; 
       colList[u].clear();
       confAdjList[u].clear();
+    }
+    //for memory improvement
+    for (auto i=0;i<colList.size();i++) {
+      colList[i].clear();
+      confAdjList[i].clear(); 
     }
     #ifdef ENABLE_GPU
     h_colList.clear();

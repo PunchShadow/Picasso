@@ -30,3 +30,4 @@ using  NODE_T = int;
 //Change this to long if number of edges does not fit into integer
 //typedef  unsigned int EDGE_T;
 using  EDGE_T =  long long;
+//using  EDGE_T =  int;

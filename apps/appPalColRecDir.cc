@@ -51,20 +51,22 @@ int main(int argC, char *argV[]) {
   cxxopts::Options options("palettecol", "read json pauli string files and color the graph using palette coloring algorithm"); 
   options.add_options()
     ("in,infile", "json file containing the pauli strings", cxxopts::value<std::string>())
+    ("prob,problem", "name of the problem", cxxopts::value<std::string>()->default_value(""))
     ("out,outfile", "json file containing the groups after coloring", cxxopts::value<std::string>()->default_value(""))
     ("t,target", "palette size", cxxopts::value<NODE_T>())
     ("a,alpha", "coefficient to log(n) for list size", cxxopts::value<float>()->default_value("1.0"))
     //("s,stream", "use streaming construction", cxxopts::value<bool>()->default_value("false"))
     ("l,list", "use explicit list size", cxxopts::value<NODE_T>()->default_value("-1"))
+    ("inv,ninv", "number of invalid vertices tolerance", cxxopts::value<NODE_T>()->default_value("100"))
     ("c,check", "check validity of coloring", cxxopts::value<bool>()->default_value("false"))
     ("r,recurse", "use recursive coloring", cxxopts::value<bool>()->default_value("false"))
     ("s,seed", "use seed", cxxopts::value<int>()->default_value("123"))
     ("h,help", "print usage")
     ;
 
-  std::string inFname,outFname;
+  std::string inFname,outFname,problemName;
   int seed;
-  NODE_T target,list_size;
+  NODE_T target,list_size,nInv;
   float alpha;
   bool isValid,isRec;
   try{
@@ -74,6 +76,7 @@ int main(int argC, char *argV[]) {
           std::exit(0);
     }
     inFname = result["infile"].as<std::string>();
+    problemName = result["problem"].as<std::string>();
     outFname = result["outfile"].as<std::string>();
     target = result["target"].as<NODE_T>();
     seed = result["seed"].as<int>();
@@ -82,6 +85,7 @@ int main(int argC, char *argV[]) {
     isValid = result["check"].as<bool>();
     isRec = result["recurse"].as<bool>();
     list_size = result["list"].as<NODE_T>();
+    nInv = result["ninv"].as<NODE_T>();
   }
   catch(cxxopts::exceptions::exception &exp) {
     std::cout<<options.help()<<std::endl;
@@ -124,7 +128,7 @@ int main(int argC, char *argV[]) {
   printStat(level,palStat);
 
   if (isRec == true) {
-    while(invVert.size() > 100) { 
+    while(invVert.size() > nInv) { 
       jsongraph.resetNumEdge();
       level++;
       if(invVert.empty() == false) {

@@ -43,6 +43,7 @@
 #custom
 build/
 large-graphs/
+experimentations/
 .DS_Store
 data
 #pauli_ket_ccsd_data
