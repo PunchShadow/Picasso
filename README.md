@@ -53,9 +53,37 @@ Two primary executables are provided:
 
 Use the `-h` option with either executable to see available parameters and usage instructions.
 
-Example:
+Example 1:
 ```bash
 ./build/apps/palcolGr -h
+```
+Example 2:
+This example shows  how to execute the CPU-only coloring code to generate grouping for the `Pauli_ket_ccsd_H2_631g.json` file. We will use the recursive version (`-r`) and will also output the grouping into a new json file (`--out`). We execute the following command into the base directory. Here, our initial target color value is 15 (The actual coloring will be more). 
+```bash
+./build/apps/palcolEr -t 15 --in data/pauli_ket_ccsd_data/Pauli_ket_ccsd_H2_631g.json --out data/group_results/H2_631g_out1.json
+```
+The expected output on the screen could be
+
+```
+The grouping output: data/group_results/H2_631g_out1.json
+using list greedy ordering for conflict coloring
+
+***********Level 0*******
+Num Nodes: 89
+Num Edges: 1988
+Avg. Deg.: 44.6742
+Palette Size: 15
+List Size: 4
+Num Conflict Edges: 1539
+Conflict to Edge (%): 77.4145
+Num Colors: 15
+Assign Time: 2.80626e-05
+Conf. Build Time: 0.000160687
+Conf. Color Time: 0.000172731
+
+Final Num invalid Vert: 23
+Naive Color TIme: 8.6166e-06
+# of Final colors: 26
 ```
 
 ## Contact
