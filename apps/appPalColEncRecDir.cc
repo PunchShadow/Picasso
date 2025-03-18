@@ -197,7 +197,7 @@ int main(int argC, char *argV[]) {
     std::cout<<options.help()<<std::endl;
     exit(1);
   }
-  std::cout<<outFname<<std::endl;
+  std::cout<<"The grouping output: "<<outFname<<std::endl;
   LOG log;
   
   if(resFileName.empty() == false) {
@@ -223,7 +223,7 @@ int main(int argC, char *argV[]) {
     std::cout<<"Since list size is given, ignoring alpha"<<std::endl;
   PaletteColor palcol(n,target,alpha,list_size,seed);
 
-  std::cout<<getPeakRSS() - baseline<<std::endl;
+  //std::cout<<getPeakRSS() - baseline<<std::endl;
   
   int level = 0;
   //level 0 
@@ -237,7 +237,7 @@ int main(int argC, char *argV[]) {
     }
   }*/
   palcol.buildConfGraph<std::vector<uint32_t>>(jsongraph);
-  std::cout<<getPeakRSS() - baseline<<std::endl;
+  //std::cout<<getPeakRSS() - baseline<<std::endl;
   
   //double createConfTime = omp_get_wtime() - t1;
   //std::cout<<"Conflict graph construction time: "<<createConfTime<<std::endl;
@@ -253,7 +253,7 @@ int main(int argC, char *argV[]) {
     palcol.confColorGreedy();
   }
   //std::vector<NODE_T> colors = palcol.getColors();
-  std::cout<<getPeakRSS() - baseline<<std::endl;
+  //std::cout<<getPeakRSS() - baseline<<std::endl;
   
   std::vector <NODE_T>  invVert = palcol.getInvVertices();
   PalColStat palStat = palcol.getPalStat(level); 
@@ -336,6 +336,8 @@ int main(int argC, char *argV[]) {
   }
 
   if(outFname.empty() == false) {
+    //Be advised that using this fuction is going to increase memory consumption, since we are recreating the data array. This is only needed if we are encoding the data.
+    jsongraph.computeDataArray(true);
     std::vector<NODE_T> cols = palcol.getColors();
     json jsonGrp = jsongraph.createColGroup(cols, palcol.getNumColors()); 
     std::string jsonString = jsonGrp.dump(4);

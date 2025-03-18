@@ -154,6 +154,19 @@ namespace ClqPart {
         }
       }
 
+      
+      void computeDataArray(bool encode) {
+        if(encode){
+          dataAr = json::array();
+          for (auto& el : data.items()) {
+              json pair = json::array();
+              pair.push_back(el.key());
+              pair.push_back(el.value());
+              dataAr.push_back(pair);
+          }
+        }
+      }
+
       template <typename PauliTy = std::string>
       bool is_an_edge(NODE_T u, NODE_T v) {
         /*json::iterator bIt = data.begin();
