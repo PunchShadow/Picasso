@@ -85,6 +85,7 @@ Final Num invalid Vert: 23
 Naive Color TIme: 8.6166e-06
 # of Final colors: 26
 ```
+The corresponding grouping JSON file should be created in the `data/group_results` directory (make sure that the directory exists!)
 
 ## Contact
 
