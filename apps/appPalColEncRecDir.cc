@@ -149,7 +149,7 @@ public:
 
 int main(int argC, char *argV[]) {
   
-  cxxopts::Options options("palettecol", "read json pauli string files and color the graph using palette coloring algorithm"); 
+  cxxopts::Options options("palcolEr", "read json pauli string files and color the graph using palette coloring algorithm (CPU only version)"); 
   options.add_options()
     ("in,infile", "json file containing the pauli strings", cxxopts::value<std::string>())
     ("prob,problem", "problem name", cxxopts::value<std::string>()->default_value(""))

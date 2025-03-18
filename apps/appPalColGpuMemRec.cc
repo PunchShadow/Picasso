@@ -48,7 +48,7 @@ void printStat( int level, PalColStat &palStat) {
 
 int main(int argC, char *argV[]) {
   
-  cxxopts::Options options("palettecol", "read json pauli string files and color the graph using palette coloring algorithm"); 
+  cxxopts::Options options("palColGr", "read json pauli string files and color the graph using palette coloring algorithm (GPU-accelerated vesion)"); 
   options.add_options()
     ("in,infile", "json file containing the pauli strings", cxxopts::value<std::string>())
     ("t,target", "palette size", cxxopts::value<double>())
