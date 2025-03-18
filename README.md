@@ -1,47 +1,66 @@
-# Picasso: Memory Efficient Parllel Graph Coloring for Quantum Chemistry
+# Picasso: Memory Efficient Parallel Graph Coloring for Quantum Chemistry
 
+This repository provides sequential and GPU source code for the graph coloring algorithm introduced in the following publication:
 
-## Introduction
-
-This repository provides the sequential and GPU source code of the graph coloring algorithm proposed in the following publication.
-
-    @inproceedings{ferdous2024picasso,
-      title={Picasso: Memory-Efficient Graph Coloring Using Palettes With Applications in Quantum Computing},
-      author={Ferdous, SM and Neff, Reece and Peng, Bo and Shuvo, Salman and Minutoli, Marco and Mukherjee, Sayak and Kowalski, Karol and Becchi, Michela and Halappanavar, Mahantesh},
-      booktitle={2024 IEEE International Parallel and Distributed Processing Symposium (IPDPS)},
-      pages={241--252},
-      year={2024},
-      organization={IEEE}
-
+```bibtex
+@inproceedings{ferdous2024picasso,
+  title={Picasso: Memory-Efficient Graph Coloring Using Palettes With Applications in Quantum Computing},
+  author={Ferdous, SM and Neff, Reece and Peng, Bo and Shuvo, Salman and Minutoli, Marco and Mukherjee, Sayak and Kowalski, Karol and Becchi, Michela and Halappanavar, Mahantesh},
+  booktitle={2024 IEEE International Parallel and Distributed Processing Symposium (IPDPS)},
+  pages={241--252},
+  year={2024},
+  organization={IEEE}
 }
-The graph coloring problem is motivated from a quantum chemistry application, where unitary partioning of a set of Pauli strings are used for efficient measurement. Please cite the above publication if you use Picasso in your research. 
+```
 
+The graph coloring problem addressed here is motivated by quantum chemistry applications, specifically for efficient measurement through unitary partitioning of Pauli strings. Please cite the above publication if you use Picasso in your research.
 
 ## Installation
-To use this program, you need to have the following dependencies installed:
+
+### Dependencies
+Ensure you have the following dependencies installed:
 - C++ compiler (e.g., g++)
-- CMake >=3.18
-- CUDA >=11 (tested, earlier versions may be compatible)
+- CMake (version >= 3.18)
+- CUDA (version >= 11; tested, earlier versions may also work)
 
-Once you have the dependencies installed, you can follow these steps to install the program:
+### Building Picasso
+Clone and build the repository:
 
-1. Clone the repository:
-   ```bash
-   git clone git@github.com:smferdous1/Picasso.git --recurse-submodules
-   cd Picasso
-   ```
-  
-  2. Create the build directory, run cmake and  make:
-		    
-		```bash
-		# Create and enter build directory
-		mkdir build
-		cd build
+```bash
+git clone git@github.com:smferdous1/Picasso.git --recurse-submodules
+cd Picasso
 
-		# Run CMake configuration
-		cmake ..
+# Create and enter build directory
+mkdir build
+cd build
 
-		# Compile the project
-		make
-		```
+# Run CMake configuration
+cmake ..
 
+# Compile the project
+make
+```
+
+## Dataset
+
+A sample dataset is included in JSON format under `data/pauli_ket_ccsd_data`. This dataset represents the hydrogen molecule (H) with varying numbers of bases and basis functions. The complete dataset used in our paper will soon be made available, with a link provided here.
+
+## Running the Code
+
+Two primary executables are provided:
+- CPU-only version: `build/apps/palcolEr`
+- GPU-accelerated version: `build/apps/palcolGr`
+
+Use the `-h` option with either executable to see available parameters and usage instructions.
+
+Example:
+```bash
+./build/apps/palcolGr -h
+```
+
+## Contact
+
+For questions or further information, please contact:
+
+- **S M Ferdous:** [sm.ferdous@pnnl.gov](mailto:sm.ferdous@pnnl.gov), [ferdous.csebuet@gmail.com](mailto:ferdous.csebuet@gmail.com)
+- **Reece Neff:** [rwneff@ncsu.edu](mailto:rwneff@ncsu.edu), [reece.neff@pnnl.gov](mailto:reece.neff@pnnl.gov)
