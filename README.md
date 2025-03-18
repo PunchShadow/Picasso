@@ -5,7 +5,7 @@ This repository provides sequential and GPU source code for the graph coloring a
 ```bibtex
 @inproceedings{ferdous2024picasso,
   title={Picasso: Memory-Efficient Graph Coloring Using Palettes With Applications in Quantum Computing},
-  author={Ferdous, SM and Neff, Reece and Peng, Bo and Shuvo, Salman and Minutoli, Marco and Mukherjee, Sayak and Kowalski, Karol and Becchi, Michela and Halappanavar, Mahantesh},
+  author={Ferdous, S M and Neff, Reece and Peng, Bo and Shuvo, Salman and Minutoli, Marco and Mukherjee, Sayak and Kowalski, Karol and Becchi, Michela and Halappanavar, Mahantesh},
   booktitle={2024 IEEE International Parallel and Distributed Processing Symposium (IPDPS)},
   pages={241--252},
   year={2024},
@@ -48,22 +48,27 @@ A sample dataset is included in JSON format under `data/pauli_ket_ccsd_data`. Th
 ## Running the Code
 
 Two primary executables are provided:
-- CPU-only version: `build/apps/palcolEr` corresponds to `apps/appPalColEncRecDir.cc` 
-- GPU-accelerated version: `build/apps/palcolGr` corresponds to `apps/appPalColGpuMemRec.cc`
+- **CPU-only version**: `build/apps/palcolEr` (source: `apps/appPalColEncRecDir.cc`)
+- **GPU-accelerated version**: `build/apps/palcolGr` (source: `apps/appPalColGpuMemRec.cc`)
 
-Use the `-h` option with either executable to see available parameters and usage instructions.
+Use the `-h` option with either executable to view available parameters and usage instructions.
 
-Example 1:
+### Examples
+
+**Example 1:** GPU version help
 ```bash
 ./build/apps/palcolGr -h
 ```
-Example 2:
-This example shows  how to execute the CPU-only coloring code to generate grouping for the `Pauli_ket_ccsd_H2_631g.json` file. We will use the recursive version (`-r`) and will also output the grouping into a new json file (`--out`). We execute the following command into the base directory. Here, our initial target color value is 15 (The actual coloring will be more). 
+
+**Example 2:** CPU-only execution
+
+Generate grouping for the `Pauli_ket_ccsd_H2_631g.json` dataset using the recursive option (`-r`) with an initial target of 15 colors:
+
 ```bash
 ./build/apps/palcolEr -t 15 --in data/pauli_ket_ccsd_data/Pauli_ket_ccsd_H2_631g.json --out data/group_results/H2_631g_out1.json
 ```
-The expected output on the screen could be
 
+Expected screen output:
 ```
 The grouping output: data/group_results/H2_631g_out1.json
 using list greedy ordering for conflict coloring
@@ -85,7 +90,8 @@ Final Num invalid Vert: 23
 Naive Color TIme: 8.6166e-06
 # of Final colors: 26
 ```
-The corresponding grouping JSON file should be created in the `data/group_results` directory (make sure that the directory exists!)
+
+Make sure the `data/group_results` directory exists before running this command.
 
 ## Contact
 
