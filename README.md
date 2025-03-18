@@ -48,8 +48,8 @@ A sample dataset is included in JSON format under `data/pauli_ket_ccsd_data`. Th
 ## Running the Code
 
 Two primary executables are provided:
-- CPU-only version: `build/apps/palcolEr`
-- GPU-accelerated version: `build/apps/palcolGr`
+- CPU-only version: `build/apps/palcolEr` corresponds to `apps/appPalColEncRecDir.cc` 
+- GPU-accelerated version: `build/apps/palcolGr` corresponds to `apps/appPalColGpuMemRec.cc`
 
 Use the `-h` option with either executable to see available parameters and usage instructions.
 
