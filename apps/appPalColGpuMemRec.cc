@@ -54,6 +54,7 @@ int main(int argC, char *argV[]) {
     ("t,target", "palette size", cxxopts::value<double>())
     ("a,alpha", "coefficient to log(n) for list size", cxxopts::value<float>()->default_value("1.0"))
     ("l,list", "use explicit list size", cxxopts::value<NODE_T>()->default_value("-1"))
+    ("inv,ninv", "number of invalid vertices tolerance", cxxopts::value<NODE_T>()->default_value("100"))
     ("o,order", "RANDOM, LIST",cxxopts::value<std::string>()->default_value("LIST"))
     ("c,check", "check validity of coloring", cxxopts::value<bool>()->default_value("false"))
     ("r,recurse", "use recursive coloring", cxxopts::value<bool>()->default_value("false"))
@@ -64,7 +65,7 @@ int main(int argC, char *argV[]) {
   std::string inFname,orderName;
   int seed;
   double target1;
-  NODE_T target,list_size;
+  NODE_T target,list_size,nInv;
   float alpha;
   bool isValid,isRec;
   try{
@@ -82,6 +83,7 @@ int main(int argC, char *argV[]) {
     isValid = result["check"].as<bool>();
     isRec = result["recurse"].as<bool>();
     list_size = result["list"].as<NODE_T>();
+    nInv = result["ninv"].as<NODE_T>();
   }
   catch(cxxopts::exceptions::exception &exp) {
     std::cout<<options.help()<<std::endl;
@@ -123,7 +125,7 @@ int main(int argC, char *argV[]) {
     // std::cout<<"Invalid Vert: "<<invVert.size()<<"\n";
     printStat(level,palStat);
     if (isRec == true) {
-        while(invVert.size() > 100) { 
+        while(invVert.size() > nInv) { 
             jsongraph.resetNumEdge();
             level++;
             if(invVert.empty() == false) {
@@ -186,7 +188,7 @@ int main(int argC, char *argV[]) {
     palStat.nColors = palcol.getNumColors(); 
     printStat(level,palStat);
     if (isRec == true) {
-        while(invVert.size() > 100) { 
+        while(invVert.size() > nInv) { 
             jsongraph.resetNumEdge();
             level++;
             if(invVert.empty() == false) {
