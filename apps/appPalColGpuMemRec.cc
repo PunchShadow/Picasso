@@ -52,7 +52,7 @@ int main(int argC, char *argV[]) {
   options.add_options()
     ("in,infile", "json file containing the pauli strings", cxxopts::value<std::string>())
     ("out,outfile", "json file containing the groups after coloring", cxxopts::value<std::string>()->default_value(""))
-    ("t,target", "palette size", cxxopts::value<double>())
+    ("t,target", "palette size. Two choices: 1) absolute number (>=1), 2) percentage(0-1) of nodes", cxxopts::value<double>())
     ("a,alpha", "coefficient to log(n) for list size", cxxopts::value<float>()->default_value("1.0"))
     ("l,list", "use explicit list size", cxxopts::value<NODE_T>()->default_value("-1"))
     ("inv,ninv", "number of invalid vertices tolerance", cxxopts::value<NODE_T>()->default_value("100"))
