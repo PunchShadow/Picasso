@@ -372,11 +372,20 @@ void buildCsrConfGraphDevice(
 }
 
 template <typename OffsetTy>
-__host__ void cubInclusiveSum(void *d_confOffsetsCnt, const NODE_T n, OffsetTy *d_confOffsets){
+__host__ OffsetTy *cubExclusiveSum(const NODE_T n, OffsetTy *d_confOffsets){
     int num_elements = n + 1;
     size_t num_bytes = num_elements * sizeof(OffsetTy);
-    // Call cub to perform inclusive sum
-    cub::DeviceScan::ExclusiveSum<OffsetTy *, OffsetTy *>(d_confOffsetsCnt, num_bytes, d_confOffsets, d_confOffsets, num_elements);
+    // Find out how much temporary storage is needed for cub
+    void *d_temp_storage = NULL;
+    size_t temp_storage_bytes = 0;
+    cub::DeviceScan::ExclusiveSum(d_temp_storage, temp_storage_bytes, d_confOffsets, d_confOffsets, num_elements);
+    std::cout << "Temp Storage Bytes: " << temp_storage_bytes << std::endl;
+    std::cout << "Current Bytes: " << num_bytes << std::endl;
+    size_t largest = std::max(temp_storage_bytes, num_bytes);
+    cudaMalloc(&d_temp_storage, largest);
+    // Call cub to perform exclusive sum
+    cub::DeviceScan::ExclusiveSum<OffsetTy *, OffsetTy *>(d_temp_storage, largest, d_confOffsets, d_confOffsets, num_elements);
+    return (OffsetTy *) d_temp_storage;
 }
 
 // Create forced instantiation of templates for NODE_T, unsigned int, and unsigned long long
@@ -392,6 +401,6 @@ template void buildCooCompGraphDevice(const unsigned int *, const int, const NOD
 template void buildCsrConfGraphDevice(const NODE_T, const unsigned int *, unsigned int *, const NODE_T *, NODE_T *, const unsigned int);
 template void buildCsrConfGraphDevice(const NODE_T, const unsigned long long *, unsigned long long *, const NODE_T *, NODE_T *, const unsigned long long);
 template void buildCsrConfGraphDevice(const NODE_T, const NODE_T *, NODE_T *, const NODE_T *, NODE_T *, const NODE_T);
-template void cubInclusiveSum(void *, const NODE_T, unsigned int *);
-template void cubInclusiveSum(void *, const NODE_T, unsigned long long *);
-template void cubInclusiveSum(void *, const NODE_T, NODE_T *);
+template unsigned int * cubExclusiveSum(const NODE_T, unsigned int *);
+template unsigned long long * cubExclusiveSum(const NODE_T, unsigned long long *);
+template NODE_T * cubExclusiveSum(const NODE_T, NODE_T *);

@@ -19,8 +19,9 @@ The graph coloring problem addressed here is motivated by quantum chemistry appl
 
 ### Dependencies
 Ensure you have the following dependencies installed:
-- C++ compiler (e.g., g++)
-- CMake (version >= 3.18)
+- C++ compiler (e.g., g++) with C++17 support
+  - g++ 9.1.0 is the earliest tested version known to work
+- CMake (version >= 3.1)
 - CUDA (version >= 11; tested, earlier versions may also work)
 
 ### Building Picasso
@@ -65,8 +66,10 @@ Use the `-h` option with either executable to view available parameters and usag
 Generate grouping for the `Pauli_ket_ccsd_H2_631g.json` dataset using the recursive option (`-r`) with an initial target of 15 colors:
 
 ```bash
-./build/apps/palcolEr -t 15 --in data/pauli_ket_ccsd_data/Pauli_ket_ccsd_H2_631g.json --out data/group_results/H2_631g_out1.json
+./build/apps/palcolEr -t 15 -r --in data/pauli_ket_ccsd_data/Pauli_ket_ccsd_H2_631g.json --out data/group_results/H2_631g_out1.json
 ```
+
+Make sure the `data/group_results` directory exists before running this command.
 
 Expected screen output:
 ```
@@ -91,7 +94,68 @@ Naive Color TIme: 8.6166e-06
 # of Final colors: 26
 ```
 
-Make sure the `data/group_results` directory exists before running this command.
+**Example 3:** GPU execution
+
+Generate grouping for the `Pauli_ket_ccsd_H2_631g.json` dataset using GPU with
+the recursive option (`-r`) with an initial target of 15 colors:
+
+```bash
+./build/apps/palcolGr -t 15 -r --in data/pauli_ket_ccsd_data/Pauli_ket_ccsd_H2_631g.json
+```
+
+Expected screen output:
+```
+Using 32-bit offsets
+Temp Storage Bytes: 767
+Current Bytes: 360
+Fits: 12312 < 31328
+***********Level 0*******
+Num Nodes: 89
+Num Edges: 0
+Avg. Deg.: 0
+Palette Size: 15
+List Size: 4
+Num Conflict Edges: 1539
+Conflict to Edge (%): inf
+Num Colors: 15
+Assign Time: 1.27645
+Conf. Build Time: 0.0173272
+Conf. Color Time: 0.000178425
+
+Final Num invalid Vert: 23
+Naive Color TIme: 8.87737e-06
+# of Final colors: 26
+```
+
+**Example 4:** Large GPU execution
+
+Generate grouping for the `Pauli_ket_ccsd_H4_1D_631g.json` dataset using GPU with
+the recursive option (`-r`), alpha=2 (`-a 2`), and an initial target of 1% of the total number
+of nodes (`-t 0.01`).
+
+```bash
+./build/apps/palcolGr -t 0.01 -a 2 -r --in data/pauli_ket_ccsd_data/Pauli_ket_ccsd_H4_1D_631g.json
+```
+
+Expected screen output of the last level:
+```
+***********Level 67*******
+Num Nodes: 106
+Num Edges: 0
+Avg. Deg.: 0
+Palette Size: 1
+List Size: 1
+Num Conflict Edges: 2852
+Conflict to Edge (%): inf
+Num Colors: 3943
+Assign Time: 1.46385e-05
+Conf. Build Time: 0.0126362
+Conf. Color Time: 3.08678e-05
+
+Final Num invalid Vert: 99
+Naive Color TIme: 0.00393682
+# of Final colors: 4004
+```
 
 ## Contact
 

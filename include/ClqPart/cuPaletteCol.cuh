@@ -37,4 +37,4 @@ template <typename OffsetTy>
 void buildCsrConfGraphDevice(const NODE_T, const OffsetTy *, OffsetTy *, const NODE_T *, NODE_T *, const OffsetTy);
 
 template <typename OffsetTy>
-void cubInclusiveSum(void *, const NODE_T, OffsetTy *);
+OffsetTy *cubExclusiveSum(const NODE_T, OffsetTy *);

@@ -245,8 +245,6 @@ void buildConfGraphGpuMemConscious (ClqPart::JsonGraph &jsongraph) {
   h_confOffsets.resize(n+1);
   ERR_CHK(cudaMalloc(&d_confOffsets, h_confOffsets.size() * sizeof(OffsetTy)));
   ERR_CHK(cudaMemset(d_confOffsets, 0, h_confOffsets.size() * sizeof(OffsetTy)));
-  OffsetTy *d_confOffsetsCnt;
-  ERR_CHK(cudaMalloc(&d_confOffsetsCnt, n * sizeof(OffsetTy)));
 
   OffsetTy *d_nConflicts;
   ERR_CHK(cudaMalloc(&d_nConflicts, sizeof(OffsetTy)));
@@ -269,7 +267,7 @@ void buildConfGraphGpuMemConscious (ClqPart::JsonGraph &jsongraph) {
   // Read d_nConflicts from GPU
   ERR_CHK(cudaMemcpy(&nConflicts, d_nConflicts, sizeof(OffsetTy), cudaMemcpyDeviceToHost));
   h_confVertices.resize(nConflicts*2);
-  cubInclusiveSum((void *)d_confOffsetsCnt, n, d_confOffsets);
+  OffsetTy *d_confOffsetsCnt = cubExclusiveSum(n, d_confOffsets);
   cudaDeviceSynchronize();
   // if nConflicts * sizeof(NODE_T) < half of allocMem, then we can use the memory
   // allocated for d_confVertices
@@ -375,8 +373,6 @@ void buildConfGraphGpuMemConscious (ClqPart::JsonGraph &jsongraph, std::vector<N
   // h_confOffsets.resize(n+1);
   // ERR_CHK(cudaMalloc(&d_confOffsets, h_confOffsets.size() * sizeof(OffsetTy)));
   ERR_CHK(cudaMemset(d_confOffsets, 0, h_confOffsets.size() * sizeof(OffsetTy)));
-  OffsetTy *d_confOffsetsCnt;
-  ERR_CHK(cudaMalloc(&d_confOffsetsCnt, n * sizeof(OffsetTy)));
 
   OffsetTy *d_nConflicts;
   ERR_CHK(cudaMalloc(&d_nConflicts, sizeof(OffsetTy)));
@@ -396,7 +392,7 @@ void buildConfGraphGpuMemConscious (ClqPart::JsonGraph &jsongraph, std::vector<N
   // Read d_nConflicts from GPU
   ERR_CHK(cudaMemcpy(&nConflicts, d_nConflicts, sizeof(OffsetTy), cudaMemcpyDeviceToHost));
   h_confVertices.resize(nConflicts*2);
-  cubInclusiveSum((void *)d_confOffsetsCnt, n, d_confOffsets);
+  OffsetTy *d_confOffsetsCnt = cubExclusiveSum(n, d_confOffsets);
   cudaDeviceSynchronize();
   // if nConflicts * sizeof(NODE_T) < half of allocMem, then we can use the memory
   // allocated for d_confVertices
