@@ -13,15 +13,28 @@ project( CliqePart VERSION 0.1.0
         LANGUAGES  C CXX
         )
 
-# If CUDA detected, set ENABLE_CUDA flag
-find_package(CUDA)
-if(CUDA_FOUND)
-  set(ENABLE_CUDA ON)
-  # Print CUDA found
-  message(STATUS "CUDA found, enabling CUDA compilation")
+if(${CMAKE_VERSION} VERSION_LESS "3.11")
+  # If CUDA detected, set ENABLE_CUDA flag
+  find_package(CUDA)
+  if(CUDA_FOUND)
+    set(ENABLE_CUDA ON)
+    # Print CUDA found
+    message(STATUS "CUDA found, enabling CUDA compilation")
+  else()
+    set(ENABLE_CUDA OFF)
+    message(STATUS "CUDA not found, disabling CUDA compilation")
+  endif()
 else()
-  set(ENABLE_CUDA OFF)
-  message(STATUS "CUDA not found, disabling CUDA compilation")
+  include(CheckLanguage)
+  check_language(CUDA)
+  if(CMAKE_CUDA_COMPILER)
+    set(ENABLE_CUDA ON)
+    # Print CUDA found
+    message(STATUS "CUDA found, enabling CUDA compilation")
+  else()
+    set(ENABLE_CUDA OFF)
+    message(STATUS "CUDA not found, disabling CUDA compilation")
+  endif()
 endif()
 
 # If CUDA enabled, add as language
