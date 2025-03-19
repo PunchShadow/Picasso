@@ -51,6 +51,7 @@ int main(int argC, char *argV[]) {
   cxxopts::Options options("palColGr", "read json pauli string files and color the graph using palette coloring algorithm (GPU-accelerated vesion)"); 
   options.add_options()
     ("in,infile", "json file containing the pauli strings", cxxopts::value<std::string>())
+    ("out,outfile", "json file containing the groups after coloring", cxxopts::value<std::string>()->default_value(""))
     ("t,target", "palette size", cxxopts::value<double>())
     ("a,alpha", "coefficient to log(n) for list size", cxxopts::value<float>()->default_value("1.0"))
     ("l,list", "use explicit list size", cxxopts::value<NODE_T>()->default_value("-1"))
@@ -62,7 +63,7 @@ int main(int argC, char *argV[]) {
     ("h,help", "print usage")
     ;
 
-  std::string inFname,orderName;
+  std::string inFname,orderName,outFname;
   int seed;
   double target1;
   NODE_T target,list_size,nInv;
@@ -75,6 +76,7 @@ int main(int argC, char *argV[]) {
           std::exit(0);
     }
     inFname = result["infile"].as<std::string>();
+    outFname = result["outfile"].as<std::string>();
     orderName = result["order"].as<std::string>();
     target1 = result["target"].as<double>();
     alpha = result["alpha"].as<float>();
@@ -162,12 +164,26 @@ int main(int argC, char *argV[]) {
     }
     
     std::cout<<"# of Final colors: " <<palcol.getNumColors()<<std::endl;
-    
     if(isValid) {
-        if(palcol.checkValidity(jsongraph)) 
+      if(palcol.checkValidity(jsongraph)) 
         std::cout<<"Coloring valid"<<std::endl;
-        else
+      else
         std::cout<<"Coloring invalid"<<std::endl;
+    }
+        
+    if(outFname.empty() == false) {
+      //Be advised that using this fuction is going to increase memory consumption, since we are recreating the data array. This is only needed if we are encoding the data.
+      jsongraph.computeDataArray(true);
+      std::vector<NODE_T> cols = palcol.getColors();
+      json jsonGrp = jsongraph.createColGroup(cols, palcol.getNumColors()); 
+      std::string jsonString = jsonGrp.dump(4);
+      std::ofstream outFile(outFname);
+      if(outFile.is_open()) {
+        outFile << jsonString;
+        outFile.close();
+      } else {
+          std::cerr<< outFname<<" can not be opened" <<std::endl; 
+      }
     }
   }
   else{
@@ -222,13 +238,29 @@ int main(int argC, char *argV[]) {
     }
     
     std::cout<<"# of Final colors: " <<palcol.getNumColors()<<std::endl;
-    
     if(isValid) {
-        if(palcol.checkValidity(jsongraph)) 
+      if(palcol.checkValidity(jsongraph)) 
         std::cout<<"Coloring valid"<<std::endl;
-        else
+      else
         std::cout<<"Coloring invalid"<<std::endl;
     }
+    
+    if(outFname.empty() == false) {
+      //Be advised that using this fuction is going to increase memory consumption, since we are recreating the data array. This is only needed if we are encoding the data.
+      jsongraph.computeDataArray(true);
+      std::vector<NODE_T> cols = palcol.getColors();
+      json jsonGrp = jsongraph.createColGroup(cols, palcol.getNumColors()); 
+      std::string jsonString = jsonGrp.dump(4);
+      std::ofstream outFile(outFname);
+      if(outFile.is_open()) {
+        outFile << jsonString;
+        outFile.close();
+      } else {
+          std::cerr<< outFname<<" can not be opened" <<std::endl; 
+      }
+    }
   }
+
+
   return 0;
 }  
