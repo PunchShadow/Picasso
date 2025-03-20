@@ -66,7 +66,7 @@ Use the `-h` option with either executable to view available parameters and usag
 Generate grouping for the `Pauli_ket_ccsd_H2_631g.json` dataset using the recursive option (`-r`) with an initial target of 15 colors:
 
 ```bash
-./build/apps/palcolEr -t 15 -r --in data/pauli_ket_ccsd_data/Pauli_ket_ccsd_H2_631g.json --out data/group_results/H2_631g_out1.json
+./build/apps/palcolEr -t 15 -r --in data/pauli_ket_ccsd_data/Pauli_ket_ccsd_H2_631g.json --out data/group_results/H2_631g_out_cpu.json
 ```
 
 Make sure the `data/group_results` directory exists before running this command.
@@ -100,7 +100,7 @@ Generate grouping for the `Pauli_ket_ccsd_H2_631g.json` dataset using GPU with
 the recursive option (`-r`) with an initial target of 15 colors:
 
 ```bash
-./build/apps/palcolGr -t 15 -r --in data/pauli_ket_ccsd_data/Pauli_ket_ccsd_H2_631g.json
+./build/apps/palcolGr -t 15 -r --in data/pauli_ket_ccsd_data/Pauli_ket_ccsd_H2_631g.json 
 ```
 
 Expected screen output:
@@ -111,50 +111,43 @@ Current Bytes: 360
 Fits: 12312 < 31328
 ***********Level 0*******
 Num Nodes: 89
-Num Edges: 0
-Avg. Deg.: 0
-Palette Size: 15
 List Size: 4
 Num Conflict Edges: 1539
-Conflict to Edge (%): inf
 Num Colors: 15
-Assign Time: 1.27645
-Conf. Build Time: 0.0173272
-Conf. Color Time: 0.000178425
+Assign Time: 1.30097
+Conf. Build Time: 0.017109
+Conf. Color Time: 0.0001968
 
 Final Num invalid Vert: 23
-Naive Color TIme: 8.87737e-06
+Naive Color TIme: 8.92766e-06
 # of Final colors: 26
 ```
 
 **Example 4:** Large GPU execution
 
 Generate grouping for the `Pauli_ket_ccsd_H4_1D_631g.json` dataset using GPU with
-the recursive option (`-r`), alpha=2 (`-a 2`), and an initial target of 1% of the total number
-of nodes (`-t 0.01`).
+the recursive option (`-r`), alpha=2 (`-a 2`), an initial target of 1% of the total number
+of nodes (`-t 0.01`), and exporting the output grouping.
 
 ```bash
-./build/apps/palcolGr -t 0.01 -a 2 -r --in data/pauli_ket_ccsd_data/Pauli_ket_ccsd_H4_1D_631g.json
+./build/apps/palcolGr -t 0.01 -a 2 -r --in data/pauli_ket_ccsd_data/Pauli_ket_ccsd_H4_1D_631g.json --out data/group_results/H2_631g_out_gpu.json
 ```
 
 Expected screen output of the last level:
 ```
 ***********Level 67*******
 Num Nodes: 106
-Num Edges: 0
-Avg. Deg.: 0
-Palette Size: 1
 List Size: 1
 Num Conflict Edges: 2852
-Conflict to Edge (%): inf
 Num Colors: 3943
-Assign Time: 1.46385e-05
-Conf. Build Time: 0.0126362
-Conf. Color Time: 3.08678e-05
+Assign Time: 1.38357e-05
+Conf. Build Time: 0.00385322
+Conf. Color Time: 3.38331e-05
 
 Final Num invalid Vert: 99
-Naive Color TIme: 0.00393682
+Naive Color TIme: 0.00381275
 # of Final colors: 4004
+
 ```
 
 ## Contact
