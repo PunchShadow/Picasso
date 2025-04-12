@@ -44,7 +44,7 @@ make
 
 ## Dataset
 
-A sample dataset is included in JSON format under `data/pauli_ket_ccsd_data`. This dataset represents the hydrogen molecule (H) with varying numbers of bases and basis functions. The complete dataset used in our paper will soon be made available, with a link provided here.
+A sample dataset is included in JSON format under `data/pauli_ket_ccsd_data`. This dataset represents the hydrogen molecule (H) with varying numbers of bases and basis functions. The complete dataset used in our paper can be accessed from [here](https://www.dropbox.com/scl/fi/9jc9zdqxw72ftib5dfriu/PauliInteractionsColoring.pdf?rlkey=u4fxtij9sppfqqs5kdxetroe7&st=5ggiybky&dl=0).
 
 ## Running the Code
 
