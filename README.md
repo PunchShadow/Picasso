@@ -44,7 +44,7 @@ make
 
 ## Dataset
 
-A sample dataset is included in JSON format under `data/pauli_ket_ccsd_data`. This dataset represents the hydrogen molecule (H) with varying numbers of bases and basis functions. The complete dataset used in our paper can be accessed from [here](https://www.dropbox.com/scl/fi/h2d078dctva5tj845wbn3/Pauli_terms_H_clusters.zip?rlkey=n27whg3blu41wii28w06k5ahb&st=n8taqh18&dl=0).
+A sample dataset is included in JSON format under `data/pauli_ket_ccsd_data`. This dataset represents the hydrogen molecule (H) with varying numbers of bases and basis functions. The complete dataset used in our paper can be downloaded from [here](https://www.dropbox.com/scl/fi/h2d078dctva5tj845wbn3/Pauli_terms_H_clusters.zip?rlkey=n27whg3blu41wii28w06k5ahb&st=n8taqh18&dl=0).
 
 ## Running the Code
 
