@@ -20,6 +20,7 @@
 #include <iostream>
 #include <fstream>
 #include <cstdlib>
+#include <cstdio>
 #include <vector>
 
 #include "ClqPart/input.h"
@@ -171,6 +172,81 @@ void Input::readBinGen(std::string fileName, LightGraph &G)
     inf.read((char*)&G.JA[0], sizeof(NODE_T) * 2*m);
     inf.close();
 
+}
+
+// EGR is the binary CSR format from Burtscher's ECL graph library (Texas
+// State Univ.). Layout (all little-endian, host-byte-order ints):
+//   int32 nodes
+//   int32 edges            // length of nlist == 2 * (undirected edge count)
+//   int32 nindex[nodes+1]  // CSR row pointers
+//   int32 nlist[edges]     // CSR column indices (each undirected edge stored twice)
+//   int32 eweight[edges]   // optional; we ignore weights for coloring
+void Input::readEGR(std::string fileName, LightGraph &G)
+{
+    if(fileTypeCheck(fileName,"egr")==false)
+    {
+        std::cout << "file type is not egr"<<std::endl;
+        std::exit(1);
+    }
+    FILE *f = std::fopen(fileName.c_str(), "rb");
+    if(f == nullptr) {
+        std::cout << "Can not open file "<<fileName<<std::endl;
+        std::exit(1);
+    }
+
+    int32_t nodes = 0;
+    int32_t edges = 0;
+    if(std::fread(&nodes, sizeof(int32_t), 1, f) != 1 ||
+       std::fread(&edges, sizeof(int32_t), 1, f) != 1) {
+        std::cout << "Failed to read EGR header from "<<fileName<<std::endl;
+        std::fclose(f);
+        std::exit(1);
+    }
+    if(nodes < 1 || edges < 0) {
+        std::cout << "Invalid EGR header: nodes="<<nodes<<" edges="<<edges<<std::endl;
+        std::fclose(f);
+        std::exit(1);
+    }
+
+    NODE_T n = static_cast<NODE_T>(nodes);
+    EDGE_T mTotal = static_cast<EDGE_T>(edges);
+
+    G.setNumberNodes(n);
+    G.setNumberEdges(mTotal / 2);
+    G.IA.resize(n + 1);
+    G.JA.resize(mTotal);
+
+    // nindex (n+1 int32s) -> IA (vector<EDGE_T>). Width may differ, so go via temp.
+    std::vector<int32_t> tmpIA(n + 1);
+    if(std::fread(tmpIA.data(), sizeof(int32_t), n + 1, f) !=
+       static_cast<size_t>(n + 1)) {
+        std::cout << "Failed to read EGR nindex from "<<fileName<<std::endl;
+        std::fclose(f);
+        std::exit(1);
+    }
+    for(NODE_T i = 0; i <= n; i++) G.IA[i] = static_cast<EDGE_T>(tmpIA[i]);
+
+    // nlist (edges int32s) -> JA. JA is vector<NODE_T>; if NODE_T is int the
+    // direct fread is safe, otherwise widen via temp buffer.
+    if(sizeof(NODE_T) == sizeof(int32_t)) {
+        if(std::fread(G.JA.data(), sizeof(int32_t), mTotal, f) !=
+           static_cast<size_t>(mTotal)) {
+            std::cout << "Failed to read EGR nlist from "<<fileName<<std::endl;
+            std::fclose(f);
+            std::exit(1);
+        }
+    } else {
+        std::vector<int32_t> tmpJA(mTotal);
+        if(std::fread(tmpJA.data(), sizeof(int32_t), mTotal, f) !=
+           static_cast<size_t>(mTotal)) {
+            std::cout << "Failed to read EGR nlist from "<<fileName<<std::endl;
+            std::fclose(f);
+            std::exit(1);
+        }
+        for(EDGE_T i = 0; i < mTotal; i++) G.JA[i] = static_cast<NODE_T>(tmpJA[i]);
+    }
+    // Optional eweight tail is ignored.
+    std::fclose(f);
 }
 
 void Input::wrtBinGen(std::string fileName, LightGraph &G)

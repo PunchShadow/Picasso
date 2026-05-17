@@ -388,6 +388,142 @@ __host__ OffsetTy *cubExclusiveSum(const NODE_T n, OffsetTy *d_confOffsets){
     return (OffsetTy *) d_temp_storage;
 }
 
+// EGR / LightGraph kernel. The input is already a conflict graph in CSR,
+// so we just walk its directed-edge list and gate by colour-list overlap.
+// One thread per directed edge; binary-search d_inIA to recover the
+// source vertex.
+template <typename OffsetTy>
+__global__ void build_egr_coo_conflict_graph_kernel(
+        const NODE_T *__restrict__ d_inIA,
+        const NODE_T *__restrict__ d_inJA,
+        const NODE_T *__restrict__ d_colList,
+        const NODE_T n_vertices,
+        const NODE_T n_colors,
+        const NODE_T num_dir_edges,
+        OffsetTy *__restrict__ d_confOffsets,
+        NODE_T *__restrict__ d_confAdjList,
+        OffsetTy *__restrict__ d_nConflicts){
+    Edge *d_cooEdgeList = (Edge *)d_confAdjList;
+    for(NODE_T edge_id = blockIdx.x * blockDim.x + threadIdx.x;
+        edge_id < num_dir_edges;
+        edge_id += blockDim.x * gridDim.x){
+        // Binary search: smallest u such that d_inIA[u+1] > edge_id.
+        NODE_T lo = 0;
+        NODE_T hi = n_vertices;
+        while(lo < hi){
+            NODE_T mid = (lo + hi) >> 1;
+            if(d_inIA[mid + 1] <= edge_id) lo = mid + 1;
+            else                            hi = mid;
+        }
+        NODE_T u = lo;
+        NODE_T v = d_inJA[edge_id];
+        if(v <= u) continue; // each undirected edge once
+        const NODE_T *colList1 = &d_colList[(size_t)u * n_colors];
+        const NODE_T *colList2 = &d_colList[(size_t)v * n_colors];
+        if(findFirstCommonElement(colList1, colList2, n_colors)){
+            OffsetTy idx = atomicAdd(d_nConflicts, (OffsetTy)1);
+            atomicAdd(&d_confOffsets[u], (OffsetTy)1);
+            atomicAdd(&d_confOffsets[v], (OffsetTy)1);
+            d_cooEdgeList[idx] = Edge{u, v};
+        }
+    }
+}
+
+// Subset variant. d_nodeListPos[v] gives v's position in the active nodeList
+// (or -1 if v is not active). At recursion level >= 1, d_colList has the
+// packed layout |nodeList| * n_colors (assignListColor(nodeList,offset)
+// only writes the active vertices), so we have to look up colList via
+// the position, not the vertex ID. d_nodeListPos doubles as the inSet
+// filter: a -1 entry means "skip this edge".
+template <typename OffsetTy>
+__global__ void build_egr_coo_conflict_graph_kernel(
+        const NODE_T *__restrict__ d_inIA,
+        const NODE_T *__restrict__ d_inJA,
+        const NODE_T *__restrict__ d_nodeListPos,
+        const NODE_T *__restrict__ d_colList,
+        const NODE_T n_vertices,
+        const NODE_T n_colors,
+        const NODE_T num_dir_edges,
+        OffsetTy *__restrict__ d_confOffsets,
+        NODE_T *__restrict__ d_confAdjList,
+        OffsetTy *__restrict__ d_nConflicts){
+    Edge *d_cooEdgeList = (Edge *)d_confAdjList;
+    for(NODE_T edge_id = blockIdx.x * blockDim.x + threadIdx.x;
+        edge_id < num_dir_edges;
+        edge_id += blockDim.x * gridDim.x){
+        NODE_T lo = 0;
+        NODE_T hi = n_vertices;
+        while(lo < hi){
+            NODE_T mid = (lo + hi) >> 1;
+            if(d_inIA[mid + 1] <= edge_id) lo = mid + 1;
+            else                            hi = mid;
+        }
+        NODE_T u = lo;
+        NODE_T v = d_inJA[edge_id];
+        if(v <= u) continue;
+        NODE_T uPos = d_nodeListPos[u];
+        NODE_T vPos = d_nodeListPos[v];
+        if(uPos < 0 || vPos < 0) continue;
+        const NODE_T *colList1 = &d_colList[(size_t)uPos * n_colors];
+        const NODE_T *colList2 = &d_colList[(size_t)vPos * n_colors];
+        if(findFirstCommonElement(colList1, colList2, n_colors)){
+            OffsetTy idx = atomicAdd(d_nConflicts, (OffsetTy)1);
+            atomicAdd(&d_confOffsets[u], (OffsetTy)1);
+            atomicAdd(&d_confOffsets[v], (OffsetTy)1);
+            d_cooEdgeList[idx] = Edge{u, v};
+        }
+    }
+}
+
+template <typename OffsetTy>
+void buildEgrCooConfGraphDevice(
+        const NODE_T *d_inIA,
+        const NODE_T *d_inJA,
+        const NODE_T *d_colList,
+        const NODE_T n_vertices,
+        const NODE_T n_colors,
+        const NODE_T num_dir_edges,
+        OffsetTy *d_confOffsets,
+        NODE_T *d_confAdjList,
+        OffsetTy *d_nConflicts){
+    int device;
+    cudaDeviceProp prop;
+    cudaGetDevice(&device);
+    cudaGetDeviceProperties(&prop, device);
+    int nSM = prop.multiProcessorCount;
+    int maxThreadsPerSM = prop.maxThreadsPerMultiProcessor;
+    int block_size = 256;
+    int num_blocks = nSM * (maxThreadsPerSM / block_size);
+    build_egr_coo_conflict_graph_kernel<<<num_blocks, block_size>>>(
+        d_inIA, d_inJA, d_colList, n_vertices, n_colors, num_dir_edges,
+        d_confOffsets, d_confAdjList, d_nConflicts);
+}
+
+template <typename OffsetTy>
+void buildEgrCooConfGraphDevice(
+        const NODE_T *d_inIA,
+        const NODE_T *d_inJA,
+        const NODE_T *d_nodeListPos,
+        const NODE_T *d_colList,
+        const NODE_T n_vertices,
+        const NODE_T n_colors,
+        const NODE_T num_dir_edges,
+        OffsetTy *d_confOffsets,
+        NODE_T *d_confAdjList,
+        OffsetTy *d_nConflicts){
+    int device;
+    cudaDeviceProp prop;
+    cudaGetDevice(&device);
+    cudaGetDeviceProperties(&prop, device);
+    int nSM = prop.multiProcessorCount;
+    int maxThreadsPerSM = prop.maxThreadsPerMultiProcessor;
+    int block_size = 256;
+    int num_blocks = nSM * (maxThreadsPerSM / block_size);
+    build_egr_coo_conflict_graph_kernel<<<num_blocks, block_size>>>(
+        d_inIA, d_inJA, d_nodeListPos, d_colList, n_vertices, n_colors, num_dir_edges,
+        d_confOffsets, d_confAdjList, d_nConflicts);
+}
+
 // Create forced instantiation of templates for NODE_T, unsigned int, and unsigned long long
 template void buildCooConfGraphDevice(const unsigned int *, const int, const NODE_T *, const NODE_T, const NODE_T, unsigned int *, NODE_T *, unsigned int *);
 template void buildCooConfGraphDevice(const unsigned int *, const int, const NODE_T *, const NODE_T, const NODE_T, unsigned long long *, NODE_T *, unsigned long long *);
@@ -404,3 +540,9 @@ template void buildCsrConfGraphDevice(const NODE_T, const NODE_T *, NODE_T *, co
 template unsigned int * cubExclusiveSum(const NODE_T, unsigned int *);
 template unsigned long long * cubExclusiveSum(const NODE_T, unsigned long long *);
 template NODE_T * cubExclusiveSum(const NODE_T, NODE_T *);
+template void buildEgrCooConfGraphDevice(const NODE_T *, const NODE_T *, const NODE_T *, const NODE_T, const NODE_T, const NODE_T, unsigned int *, NODE_T *, unsigned int *);
+template void buildEgrCooConfGraphDevice(const NODE_T *, const NODE_T *, const NODE_T *, const NODE_T, const NODE_T, const NODE_T, unsigned long long *, NODE_T *, unsigned long long *);
+template void buildEgrCooConfGraphDevice(const NODE_T *, const NODE_T *, const NODE_T *, const NODE_T, const NODE_T, const NODE_T, NODE_T *, NODE_T *, NODE_T *);
+template void buildEgrCooConfGraphDevice(const NODE_T *, const NODE_T *, const NODE_T *, const NODE_T *, const NODE_T, const NODE_T, const NODE_T, unsigned int *, NODE_T *, unsigned int *);
+template void buildEgrCooConfGraphDevice(const NODE_T *, const NODE_T *, const NODE_T *, const NODE_T *, const NODE_T, const NODE_T, const NODE_T, unsigned long long *, NODE_T *, unsigned long long *);
+template void buildEgrCooConfGraphDevice(const NODE_T *, const NODE_T *, const NODE_T *, const NODE_T *, const NODE_T, const NODE_T, const NODE_T, NODE_T *, NODE_T *, NODE_T *);

@@ -32,6 +32,9 @@ class Input
   void readBinGen(std::string , LightGraph &);
   void wrtBinGen(std::string , LightGraph &);
   void readGraphGen(std::string ,LightGraph&, bool=false, long int=0,VAL_T=0,VAL_T=0);
+  // EGR is the binary CSR format from Burtscher's ECL graph library
+  // (Texas State Univ.). See lib/io/ECLgraph.h in CHROMA for the wire format.
+  void readEGR(std::string , LightGraph &);
 
   Input()
   {

@@ -58,8 +58,12 @@ struct PalColStat {
   NODE_T nColors;
   double assignTime;
   double confBuildTime;
-  double confColorTime; 
+  double confColorTime;
   double invColorTime;
+  // GPU device alloc + H2D/D2H memcpy time for this level. Kept separate
+  // from assignTime/confBuildTime so those two stay pure-compute. 0 on the
+  // CPU build. Default member initializer keeps existing brace-inits valid.
+  double copyTime = 0.0;
 };
 
 template<typename OffsetTy = int>
@@ -77,16 +81,26 @@ class PaletteColor {
 
   #ifdef ENABLE_GPU
   std::vector<NODE_T> h_colList;
-  NODE_T *d_colList;
-  NODE_T *d_colors;
-  NODE_T *d_confColors;
+  NODE_T *d_colList = nullptr;
+  NODE_T *d_colors = nullptr;
+  NODE_T *d_confColors = nullptr;
   std::vector<uint32_t> h_pauliEnc;
-  uint32_t *d_pauliEnc;
-  size_t pauliEncSize;
+  uint32_t *d_pauliEnc = nullptr;
+  size_t pauliEncSize = 0;
   std::vector<NODE_T> h_confVertices;
-  NODE_T *d_confVertices;
+  NODE_T *d_confVertices = nullptr;
   std::vector<OffsetTy> h_confOffsets;
-  OffsetTy *d_confOffsets;
+  OffsetTy *d_confOffsets = nullptr;
+  // Device-resident copy of the input graph CSR (LightGraph / EGR path).
+  // Allocated once on the first build call and reused across recursion levels.
+  NODE_T *d_inIA = nullptr;
+  NODE_T *d_inJA = nullptr;
+  NODE_T num_dir_edges_in = 0;
+  // Per-level reverse map: position of vertex v in the active nodeList,
+  // or -1 if v is no longer active. Used to index into d_colList which
+  // is laid out |nodeList| * T at recursion levels >= 1. Reused across
+  // recursion levels; the size is always n.
+  NODE_T *d_nodeListPos = nullptr;
   #endif
   
   std::vector<NODE_T> invalidVertices;
@@ -156,13 +170,48 @@ public:
           } 
         }
       }
-      palStat[level].invColorTime = omp_get_wtime() - t1; 
+      palStat[level].invColorTime = omp_get_wtime() - t1;
       nColors = *std::max_element(colors.begin(),colors.end()) + 1;
     }
   }
 
+  // LightGraph variant of the naive greedy fallback. Used by the EGR / mtx
+  // path where the input graph IS the conflict graph (every edge in G is a
+  // coloring constraint), so we walk G's adjacency directly instead of
+  // checking all pairs.
+  void naiveGreedyColor(std::vector<NODE_T> vertList, LightGraph &G, NODE_T offset) {
+    if(vertList.empty()) return;
+    double t1 = omp_get_wtime();
+
+    std::vector<char> inSet(n, 0);
+    for(NODE_T v : vertList) inSet[v] = 1;
+
+    std::vector<NODE_T> forbiddenCol(n, -1);
+    colors[vertList[0]] = offset;
+    for(size_t i = 1; i < vertList.size(); i++) {
+      NODE_T u = vertList[i];
+      for(EDGE_T j = G.IA[u]; j < G.IA[u+1]; j++) {
+        NODE_T v = G.JA[j];
+        if(inSet[v] && colors[v] >= 0) {
+          forbiddenCol[colors[v]] = u;
+        }
+      }
+      // Outside-vertList neighbours already have colour < offset, so starting
+      // the search at offset and using the per-vertex marker u as the
+      // forbid-flag avoids them implicitly.
+      for(NODE_T c = offset; c < n; c++) {
+        if(forbiddenCol[c] != u) {
+          colors[u] = c;
+          break;
+        }
+      }
+    }
+    palStat[level].invColorTime = omp_get_wtime() - t1;
+    nColors = *std::max_element(colors.begin(), colors.end()) + 1;
+  }
+
   //This function computes the graph directly, rather in streaming way. It takes
-//a JsonGraph object since it requires to determine whether the pair (eu,ev) is 
+//a JsonGraph object since it requires to determine whether the pair (eu,ev) is
 //an edge in the complement graph.
 template<typename PauliTy = std::string>
 void buildConfGraph ( ClqPart::JsonGraph &jsongraph) {
@@ -214,8 +263,59 @@ void buildConfGraph ( ClqPart::JsonGraph &jsongraph, std::vector<NODE_T> &nodeLi
 
 }
 
+// LightGraph variant. The input graph IS the conflict graph already (e.g.
+// loaded from .egr or .mtx), so we just walk the existing adjacency once
+// and gate by colour-list overlap. confColorGreedy / confColorRand only
+// look at confAdjList, so once it's populated the rest of the pipeline
+// works unchanged. palStat[level].m is set here too so the per-level
+// stats line up with the JsonGraph path.
+void buildConfGraph(LightGraph &G) {
+  double t1 = omp_get_wtime();
+  EDGE_T edgeCnt = 0;
+  for(NODE_T u = 0; u < n; u++) {
+    for(EDGE_T j = G.IA[u]; j < G.IA[u+1]; j++) {
+      NODE_T v = G.JA[j];
+      if(v <= u) continue; // each undirected edge once
+      edgeCnt++;
+      if(findFirstCommonElement(colList[u], colList[v])) {
+        confAdjList[u].push_back(v);
+        confAdjList[v].push_back(u);
+        nConflicts++;
+      }
+    }
+  }
+  palStat[level].confBuildTime = omp_get_wtime() - t1;
+  palStat[level].m = edgeCnt;
+  palStat[level].mConf = nConflicts;
+}
 
-//This function checks whether the edge (eu,ev) (in complement graph) is a conflict. NOte that 
+// Subset overload: only look at edges (u,v) where both endpoints are in
+// nodeList. Used by recursive refinement on invalid vertices.
+void buildConfGraph(LightGraph &G, std::vector<NODE_T> &nodeList) {
+  std::vector<char> inSet(n, 0);
+  for(NODE_T u : nodeList) inSet[u] = 1;
+
+  double t1 = omp_get_wtime();
+  EDGE_T edgeCnt = 0;
+  for(NODE_T u : nodeList) {
+    for(EDGE_T j = G.IA[u]; j < G.IA[u+1]; j++) {
+      NODE_T v = G.JA[j];
+      if(v <= u || !inSet[v]) continue;
+      edgeCnt++;
+      if(findFirstCommonElement(colList[u], colList[v])) {
+        confAdjList[u].push_back(v);
+        confAdjList[v].push_back(u);
+        nConflicts++;
+      }
+    }
+  }
+  palStat[level].confBuildTime = omp_get_wtime() - t1;
+  palStat[level].m = edgeCnt;
+  palStat[level].mConf = nConflicts;
+}
+
+
+//This function checks whether the edge (eu,ev) (in complement graph) is a conflict. NOte that
 //this is for constructing the graph in streaming way, so we are presented with
 //one edge at a time. (eu,ev) is an edge in a complement graph.
 void buildStreamConfGraph ( NODE_T eu, NODE_T ev) {
@@ -844,6 +944,253 @@ void confColorRandCSR() {
    // <<std::endl;
   nColors = *std::max_element(colors.begin(),colors.end()) + 1;
 }
+
+// LightGraph (EGR / Mtx) GPU build. The input graph IS the conflict graph,
+// so we just upload G's CSR once, run a per-edge kernel that gates on
+// colour-list overlap, then funnel through the same CUB exclusive-sum +
+// CSR scatter the JsonGraph path uses. h_confOffsets / h_confVertices end
+// up populated for confColorGreedyCSR / confColorRandCSR to consume.
+void buildConfGraphGpuMemConscious(LightGraph &G) {
+  double t1 = omp_get_wtime();
+  double copyT = 0.0, c0;
+
+  // ---- device alloc + H2D upload (not compute) ----
+  c0 = omp_get_wtime();
+  // First level only: upload the input graph CSR once and reuse on
+  // recursive calls. EGR's wire format is int32, so num_dir_edges fits
+  // in NODE_T.
+  if(d_inIA == nullptr) {
+    num_dir_edges_in = static_cast<NODE_T>(G.IA[n]);
+    std::vector<NODE_T> tmpIA(n + 1);
+    for(NODE_T i = 0; i <= n; i++) tmpIA[i] = static_cast<NODE_T>(G.IA[i]);
+    ERR_CHK(cudaMalloc(&d_inIA, (size_t)(n + 1) * sizeof(NODE_T)));
+    ERR_CHK(cudaMemcpy(d_inIA, tmpIA.data(), (size_t)(n + 1) * sizeof(NODE_T), cudaMemcpyHostToDevice));
+    ERR_CHK(cudaMalloc(&d_inJA, (size_t)num_dir_edges_in * sizeof(NODE_T)));
+    ERR_CHK(cudaMemcpy(d_inJA, G.JA.data(), (size_t)num_dir_edges_in * sizeof(NODE_T), cudaMemcpyHostToDevice));
+  }
+
+  h_confOffsets.assign(n + 1, 0);
+  ERR_CHK(cudaMalloc(&d_confOffsets, h_confOffsets.size() * sizeof(OffsetTy)));
+  ERR_CHK(cudaMemset(d_confOffsets, 0, h_confOffsets.size() * sizeof(OffsetTy)));
+
+  OffsetTy *d_nConflicts = nullptr;
+  ERR_CHK(cudaMalloc(&d_nConflicts, sizeof(OffsetTy)));
+  ERR_CHK(cudaMemset(d_nConflicts, 0, sizeof(OffsetTy)));
+
+  // Worst case: every input edge becomes a conflict edge. Each conflict
+  // takes sizeof(Edge) for COO and 2*sizeof(NODE_T) for the CSR scatter
+  // buffer that lives alongside it.
+  size_t freeMem, totalMem;
+  ERR_CHK(cudaMemGetInfo(&freeMem, &totalMem));
+  size_t worst_edges = (size_t)num_dir_edges_in / 2;
+  size_t worst_size  = worst_edges * (sizeof(Edge) + 2 * sizeof(NODE_T));
+  size_t allocMem    = std::min((size_t)(freeMem * 0.95), worst_size);
+  // Need at least enough room for the COO write itself.
+  size_t minNeed     = worst_edges * sizeof(Edge);
+  if(allocMem < minNeed) allocMem = minNeed;
+  ERR_CHK(cudaMalloc(&d_confVertices, allocMem));
+  ERR_CHK(cudaDeviceSynchronize());
+  copyT += omp_get_wtime() - c0;
+
+  // ---- compute: conflict-detection kernel ----
+  buildEgrCooConfGraphDevice(d_inIA, d_inJA, d_colList, n, T,
+                             num_dir_edges_in,
+                             d_confOffsets, d_confVertices, d_nConflicts);
+  ERR_CHK(cudaDeviceSynchronize());
+
+  c0 = omp_get_wtime();
+  ERR_CHK(cudaMemcpy(&nConflicts, d_nConflicts, sizeof(OffsetTy), cudaMemcpyDeviceToHost));
+  copyT += omp_get_wtime() - c0;
+  h_confVertices.resize((size_t)nConflicts * 2);
+
+  // ---- compute: CUB exclusive sum ----
+  OffsetTy *d_confOffsetsCnt = cubExclusiveSum(n, d_confOffsets);
+  cudaDeviceSynchronize();
+
+  if((size_t)nConflicts * 2 < (allocMem / sizeof(NODE_T)) / 2) {
+    std::cout << "Fits: " << (size_t)nConflicts * 2 * sizeof(NODE_T)
+              << " < " << allocMem / 2 << std::endl;
+    // ---- compute: CSR scatter kernel ----
+    NODE_T *d_confCsr = d_confVertices + nConflicts * 2;
+    buildCsrConfGraphDevice(n, d_confOffsets, d_confOffsetsCnt,
+                            d_confVertices, d_confCsr, nConflicts);
+    ERR_CHK(cudaDeviceSynchronize());
+    c0 = omp_get_wtime();
+    ERR_CHK(cudaMemcpy(h_confOffsets.data(), d_confOffsets,
+                       h_confOffsets.size() * sizeof(OffsetTy),
+                       cudaMemcpyDeviceToHost));
+    ERR_CHK(cudaMemcpy(h_confVertices.data(), d_confCsr,
+                       h_confVertices.size() * sizeof(NODE_T),
+                       cudaMemcpyDeviceToHost));
+    ERR_CHK(cudaDeviceSynchronize());
+    copyT += omp_get_wtime() - c0;
+  } else {
+    std::cout << "Doesn't fit: " << (size_t)nConflicts * 2 * sizeof(NODE_T)
+              << " > " << allocMem / 2 << std::endl;
+    c0 = omp_get_wtime();
+    ERR_CHK(cudaMemcpy(h_confOffsets.data(), d_confOffsets,
+                       h_confOffsets.size() * sizeof(OffsetTy),
+                       cudaMemcpyDeviceToHost));
+    std::vector<Edge> h_cooVerticesTmp(nConflicts);
+    ERR_CHK(cudaMemcpy(h_cooVerticesTmp.data(), d_confVertices,
+                       h_cooVerticesTmp.size() * sizeof(Edge),
+                       cudaMemcpyDeviceToHost));
+    copyT += omp_get_wtime() - c0;
+    // ---- compute: CPU fallback COO->CSR scatter ----
+    std::vector<std::atomic<OffsetTy>> h_confOffsetsTmp(n);
+    for(NODE_T i = 0; i < n; i++) std::atomic_init(&h_confOffsetsTmp[i], 0);
+    #pragma omp parallel for
+    for(OffsetTy i = 0; i < nConflicts; i++) {
+      Edge e = h_cooVerticesTmp[i];
+      OffsetTy off = h_confOffsets[e.u] + std::atomic_fetch_add(&h_confOffsetsTmp[e.u], (OffsetTy)1);
+      h_confVertices[off] = e.v;
+      off = h_confOffsets[e.v] + std::atomic_fetch_add(&h_confOffsetsTmp[e.v], (OffsetTy)1);
+      h_confVertices[off] = e.u;
+    }
+  }
+
+  c0 = omp_get_wtime();
+  ERR_CHK(cudaFree(d_confOffsetsCnt));
+  ERR_CHK(cudaFree(d_nConflicts));
+  ERR_CHK(cudaDeviceSynchronize());
+  copyT += omp_get_wtime() - c0;
+
+  // ---- compute: host sort of each adjacency ----
+  #pragma omp parallel for
+  for(NODE_T i = 0; i < n; i++) {
+    std::sort(h_confVertices.begin() + h_confOffsets[i],
+              h_confVertices.begin() + h_confOffsets[i + 1]);
+  }
+  palStat[level].confBuildTime = (omp_get_wtime() - t1) - copyT;
+  palStat[level].copyTime     += copyT;
+  palStat[level].m    = (EDGE_T)num_dir_edges_in / 2;
+  palStat[level].mConf = nConflicts;
+}
+
+// Subset overload: only edges (u, v) with both endpoints in nodeList are
+// kept. Uses a 0/1 mask uploaded each level.
+void buildConfGraphGpuMemConscious(LightGraph &G, std::vector<NODE_T> &nodeList) {
+  double t1 = omp_get_wtime();
+  double copyT = 0.0, c0;
+
+  // ---- device alloc + H2D upload (not compute) ----
+  c0 = omp_get_wtime();
+  if(d_inIA == nullptr) {
+    // Defensive: allocate input CSR if level-0 was skipped (shouldn't happen
+    // in practice, but keeps the function self-contained).
+    num_dir_edges_in = static_cast<NODE_T>(G.IA[n]);
+    std::vector<NODE_T> tmpIA(n + 1);
+    for(NODE_T i = 0; i <= n; i++) tmpIA[i] = static_cast<NODE_T>(G.IA[i]);
+    ERR_CHK(cudaMalloc(&d_inIA, (size_t)(n + 1) * sizeof(NODE_T)));
+    ERR_CHK(cudaMemcpy(d_inIA, tmpIA.data(), (size_t)(n + 1) * sizeof(NODE_T), cudaMemcpyHostToDevice));
+    ERR_CHK(cudaMalloc(&d_inJA, (size_t)num_dir_edges_in * sizeof(NODE_T)));
+    ERR_CHK(cudaMemcpy(d_inJA, G.JA.data(), (size_t)num_dir_edges_in * sizeof(NODE_T), cudaMemcpyHostToDevice));
+  }
+
+  // Build the position map on host then upload. -1 = vertex not in nodeList.
+  std::vector<NODE_T> h_nodeListPos(n, -1);
+  for(size_t i = 0; i < nodeList.size(); i++) h_nodeListPos[nodeList[i]] = (NODE_T)i;
+  if(d_nodeListPos == nullptr) {
+    ERR_CHK(cudaMalloc(&d_nodeListPos, (size_t)n * sizeof(NODE_T)));
+  }
+  ERR_CHK(cudaMemcpy(d_nodeListPos, h_nodeListPos.data(), (size_t)n * sizeof(NODE_T), cudaMemcpyHostToDevice));
+
+  // d_confOffsets persists across levels (matching JsonGraph subset path).
+  if(d_confOffsets == nullptr) {
+    h_confOffsets.assign(n + 1, 0);
+    ERR_CHK(cudaMalloc(&d_confOffsets, h_confOffsets.size() * sizeof(OffsetTy)));
+  } else {
+    h_confOffsets.assign(n + 1, 0);
+  }
+  ERR_CHK(cudaMemset(d_confOffsets, 0, h_confOffsets.size() * sizeof(OffsetTy)));
+
+  OffsetTy *d_nConflicts = nullptr;
+  ERR_CHK(cudaMalloc(&d_nConflicts, sizeof(OffsetTy)));
+  ERR_CHK(cudaMemset(d_nConflicts, 0, sizeof(OffsetTy)));
+
+  size_t freeMem, totalMem;
+  ERR_CHK(cudaMemGetInfo(&freeMem, &totalMem));
+  // Worst case bounded by induced subgraph; conservatively use full graph.
+  size_t worst_edges = (size_t)num_dir_edges_in / 2;
+  size_t worst_size  = worst_edges * (sizeof(Edge) + 2 * sizeof(NODE_T));
+  size_t allocMem    = std::min((size_t)(freeMem * 0.95), worst_size);
+  size_t minNeed     = worst_edges * sizeof(Edge);
+  if(allocMem < minNeed) allocMem = minNeed;
+  ERR_CHK(cudaMalloc(&d_confVertices, allocMem));
+  ERR_CHK(cudaDeviceSynchronize());
+  copyT += omp_get_wtime() - c0;
+
+  // ---- compute: conflict-detection kernel ----
+  buildEgrCooConfGraphDevice(d_inIA, d_inJA, d_nodeListPos, d_colList, n, T,
+                             num_dir_edges_in,
+                             d_confOffsets, d_confVertices, d_nConflicts);
+  ERR_CHK(cudaDeviceSynchronize());
+
+  c0 = omp_get_wtime();
+  ERR_CHK(cudaMemcpy(&nConflicts, d_nConflicts, sizeof(OffsetTy), cudaMemcpyDeviceToHost));
+  copyT += omp_get_wtime() - c0;
+  h_confVertices.assign((size_t)nConflicts * 2, 0);
+
+  // ---- compute: CUB exclusive sum ----
+  OffsetTy *d_confOffsetsCnt = cubExclusiveSum(n, d_confOffsets);
+  cudaDeviceSynchronize();
+
+  if((size_t)nConflicts * 2 < (allocMem / sizeof(NODE_T)) / 2) {
+    // ---- compute: CSR scatter kernel ----
+    NODE_T *d_confCsr = d_confVertices + nConflicts * 2;
+    buildCsrConfGraphDevice(n, d_confOffsets, d_confOffsetsCnt,
+                            d_confVertices, d_confCsr, nConflicts);
+    ERR_CHK(cudaDeviceSynchronize());
+    c0 = omp_get_wtime();
+    ERR_CHK(cudaMemcpy(h_confOffsets.data(), d_confOffsets,
+                       h_confOffsets.size() * sizeof(OffsetTy),
+                       cudaMemcpyDeviceToHost));
+    ERR_CHK(cudaMemcpy(h_confVertices.data(), d_confCsr,
+                       h_confVertices.size() * sizeof(NODE_T),
+                       cudaMemcpyDeviceToHost));
+    ERR_CHK(cudaDeviceSynchronize());
+    copyT += omp_get_wtime() - c0;
+  } else {
+    c0 = omp_get_wtime();
+    ERR_CHK(cudaMemcpy(h_confOffsets.data(), d_confOffsets,
+                       h_confOffsets.size() * sizeof(OffsetTy),
+                       cudaMemcpyDeviceToHost));
+    std::vector<Edge> h_cooVerticesTmp(nConflicts);
+    ERR_CHK(cudaMemcpy(h_cooVerticesTmp.data(), d_confVertices,
+                       h_cooVerticesTmp.size() * sizeof(Edge),
+                       cudaMemcpyDeviceToHost));
+    copyT += omp_get_wtime() - c0;
+    // ---- compute: CPU fallback COO->CSR scatter ----
+    std::vector<std::atomic<OffsetTy>> h_confOffsetsTmp(n);
+    for(NODE_T i = 0; i < n; i++) std::atomic_init(&h_confOffsetsTmp[i], 0);
+    #pragma omp parallel for
+    for(OffsetTy i = 0; i < nConflicts; i++) {
+      Edge e = h_cooVerticesTmp[i];
+      OffsetTy off = h_confOffsets[e.u] + std::atomic_fetch_add(&h_confOffsetsTmp[e.u], (OffsetTy)1);
+      h_confVertices[off] = e.v;
+      off = h_confOffsets[e.v] + std::atomic_fetch_add(&h_confOffsetsTmp[e.v], (OffsetTy)1);
+      h_confVertices[off] = e.u;
+    }
+  }
+
+  c0 = omp_get_wtime();
+  ERR_CHK(cudaFree(d_confOffsetsCnt));
+  ERR_CHK(cudaFree(d_nConflicts));
+  ERR_CHK(cudaDeviceSynchronize());
+  copyT += omp_get_wtime() - c0;
+
+  // ---- compute: host sort of each adjacency ----
+  #pragma omp parallel for
+  for(NODE_T u : nodeList) {
+    std::sort(h_confVertices.begin() + h_confOffsets[u],
+              h_confVertices.begin() + h_confOffsets[u + 1]);
+  }
+  palStat[level].confBuildTime = (omp_get_wtime() - t1) - copyT;
+  palStat[level].copyTime     += copyT;
+  // Induced edge count requires a host pass; for stats parity with the CPU
+  // path we just leave .m at level-0 graph edges and mConf at the new count.
+  palStat[level].mConf = nConflicts;
+}
 #endif // ENABLE_GPU
 
 //This function sort the vertices of the conflict graph w.r.t to their degrees.
@@ -1247,13 +1594,28 @@ void confColorGreedy(std::vector<NODE_T> &nodeList) {
     for(NODE_T ev = eu+1; ev < n; ev++) {
 
       if(jsongraph.is_an_edge<PauliTy>(eu,ev) == false) {
-        if((colors[eu] >  -1 && colors[ev] > -1) && (colors[eu] == colors[ev])) 
+        if((colors[eu] >  -1 && colors[ev] > -1) && (colors[eu] == colors[ev]))
           return false;
       }
     }
   }
   return true;
 }
+
+  // LightGraph variant. Walks G's adjacency directly: any two adjacent
+  // vertices sharing the same colour is a violation.
+  bool checkValidity(LightGraph &G) {
+    for(NODE_T u = 0; u < n; u++) {
+      for(EDGE_T j = G.IA[u]; j < G.IA[u+1]; j++) {
+        NODE_T v = G.JA[j];
+        if(v <= u) continue;
+        if(colors[u] > -1 && colors[v] > -1 && colors[u] == colors[v]) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
 
   std::vector< std::vector<NODE_T> >& getConfAdjList() { return confAdjList; }
   //std::vector<NODE_T>& getConfVertices() { return confVertices; }
@@ -1289,21 +1651,23 @@ void assignListColor() {
         col = uniform_dist(engine);
       }while(isPresent[col] == true);
 
-      colList[i].push_back(col); 
+      colList[i].push_back(col);
       isPresent[col] = true;
-    } 
+    }
     std::sort(colList[i].begin(),colList[i].end());
     #ifdef ENABLE_GPU
     h_colList.insert(h_colList.end(), colList[i].begin(), colList[i].end());
     #endif
   }
+  // The sampling loop above is the pure compute part of assignment.
+  palStat[level].assignTime = omp_get_wtime() - t1;
   #ifdef ENABLE_GPU
-  // Copy h_colList to GPU
-  cudaError_t err;
+  // Copy h_colList to GPU — alloc + H2D, recorded separately.
+  double tc = omp_get_wtime();
   ERR_CHK(cudaMalloc(&d_colList, h_colList.size() * sizeof(NODE_T)));
   ERR_CHK(cudaMemcpy(d_colList, h_colList.data(), h_colList.size() * sizeof(NODE_T), cudaMemcpyHostToDevice));
+  palStat[level].copyTime += omp_get_wtime() - tc;
   #endif // ENABLE_GPU
-  palStat[level].assignTime = omp_get_wtime() - t1;
   // std::cout<<"Assignment Time: "<<assignTime<<std::endl;
 
 }
@@ -1343,12 +1707,14 @@ void assignListColor(std::vector<NODE_T> &nodeList,NODE_T offset) {
     h_colList.insert(h_colList.end(), colList[i].begin(), colList[i].end());
     #endif
   }
+  palStat[level].assignTime = omp_get_wtime() - t1;
   #ifdef ENABLE_GPU
-  // Copy h_colList to GPU
+  // Copy h_colList to GPU — alloc + H2D, recorded separately.
+  double tc = omp_get_wtime();
   ERR_CHK(cudaMalloc(&d_colList, h_colList.size() * sizeof(NODE_T)));
   ERR_CHK(cudaMemcpy(d_colList, h_colList.data(), h_colList.size() * sizeof(NODE_T), cudaMemcpyHostToDevice));
+  palStat[level].copyTime += omp_get_wtime() - tc;
   #endif // ENABLE_GPU
-  palStat[level].assignTime = omp_get_wtime() - t1;
   //std::cout<<"Assignment Time: "<<assignTime<<std::endl;
 }
 
